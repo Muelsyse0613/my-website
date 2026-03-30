@@ -8,9 +8,10 @@ export const revalidate = 0;
 
 export default async function Home() {
   const { data: diaries } = await supabase
-    .from('diaries')
-    .select('*')
-    .order('date', { ascending: false });
+  .from('diaries')
+  .select('*')
+  .order('date', { ascending: false }) // 第一优先级：按你在表单填写的日期排（新的在前）
+  .order('created_at', { ascending: false }); // 第二优先级：如果日期相同，按精确的发布时间排（晚发的在前）
 
   const { data: timelines } = await supabase
     .from('timeline')
