@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import VisitorHeatmap from './VisitorHeatMap';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -81,6 +82,11 @@ export default async function Home() {
                 来我的留言板坐坐 →
               </a>
             </div>
+          </div>
+
+          {/* 访客足迹热力图 */}
+          <div className="mt-16">
+            <VisitorHeatmap />
           </div>
         </section>
 
