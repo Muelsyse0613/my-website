@@ -12,8 +12,11 @@ export default function VisitorHeatmap() {
   const [monthData, setMonthData] = useState<Record<string, number>>({});
   const [todayCount, setTodayCount] = useState(0);
   const [totalCount, setTotalCount] = useState(0);
+  const [mounted, setMounted] = useState(false);
+
 
   useEffect(() => {
+    setMounted(true);
     async function init() {
       try {
         const alreadyCounted = sessionStorage.getItem('visit_counted');
@@ -122,7 +125,7 @@ export default function VisitorHeatmap() {
             const views = monthData[dateStr] || 0;
             const isFuture = day > todayDate;
             const isToday = day === todayDate;
-
+            if (!mounted) return null;
             return (
               <div
                 key={day}
