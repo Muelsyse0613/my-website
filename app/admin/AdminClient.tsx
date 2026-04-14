@@ -28,7 +28,11 @@ export default function AdminClient() {
   // ✨ 新增：用于存放随笔底部的专属评论
   const [articleComments, setArticleComments] = useState<any[]>([]);
 
-  const [diaryForm, setDiaryForm] = useState({ id: '', title: '', summary: '', content: '', date: '' });
+  // ✨ 分类功能：分类列表 & 新建分类表单
+  const [categories, setCategories] = useState<any[]>([]);
+  const [newCategoryName, setNewCategoryName] = useState('');
+
+  const [diaryForm, setDiaryForm] = useState({ id: '', title: '', summary: '', content: '', date: '', category_id: '' });
   const [timelineForm, setTimelineForm] = useState({ id: '', date: '', title: '', description: '', link_url: '' });
   const [vipForm, setVipForm] = useState({ id: '', name: '', q1: '', a1: '', q2: '', a2: '', q3: '', a3: '', title: '', summary: '', content: '', date: '' });
 
@@ -46,8 +50,11 @@ export default function AdminClient() {
   const fetchData = async () => {
     setLoading(true);
     if (activeTab === 'diaries') {
-      const { data } = await supabase.from('diaries').select('*').order('created_at', { ascending: false });
+      const { data } = await supabase.from('diaries').select('*, categories(name)').order('created_at', { ascending: false });
       setDiaries(data || []);
+      // 同时拉取分类列表，供下拉选择和管理使用
+      const { data: catData } = await supabase.from('categories').select('*').order('sort_order', { ascending: true }).order('created_at', { ascending: true });
+      setCategories(catData || []);
     } else if (activeTab === 'timeline') {
       const { data } = await supabase.from('timeline').select('*').order('date', { ascending: false });
       setTimelines(data || []);
@@ -70,10 +77,10 @@ export default function AdminClient() {
   const saveDiary = async (e: React.FormEvent) => { 
     e.preventDefault();
     setLoading(true);
-    const diaryData = { title: diaryForm.title, summary: diaryForm.summary, content: diaryForm.content, date: diaryForm.date };
+    const diaryData = { title: diaryForm.title, summary: diaryForm.summary, content: diaryForm.content, date: diaryForm.date, category_id: diaryForm.category_id || null };
     if (diaryForm.id) { await supabase.from('diaries').update(diaryData).eq('id', diaryForm.id); alert('更新成功！'); } 
     else { await supabase.from('diaries').insert([diaryData]); alert('发布成功！'); }
-    setDiaryForm({ id: '', title: '', summary: '', content: '', date: '' });
+    setDiaryForm({ id: '', title: '', summary: '', content: '', date: '', category_id: '' });
     fetchData();
   };
 
@@ -150,6 +157,28 @@ export default function AdminClient() {
     fetchData();
   };
 
+  // ✨ 分类功能：新增分类
+  const saveCategory = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newCategoryName.trim()) return;
+    setLoading(true);
+    const { error } = await supabase.from('categories').insert([{ name: newCategoryName.trim() }]);
+    if (error) {
+      alert('创建失败，该分类名可能已存在');
+    } else {
+      alert('分类创建成功！');
+      setNewCategoryName('');
+    }
+    fetchData();
+  };
+
+  // ✨ 分类功能：删除分类（不会删除该分类下的随笔，只是解除关联）
+  const deleteCategory = async (id: string) => {
+    if (!window.confirm('确定要删除这个分类吗？已归入该分类的随笔不会被删除，但会变成"未分类"状态。')) return;
+    await supabase.from('categories').delete().eq('id', id);
+    fetchData();
+  };
+
   const uploadImageToSupabase = async (file: File) => {
     const fileExt = file.name.split('.').pop() || 'png';
     const fileName = `${Math.random().toString(36).substring(2, 15)}_${Date.now()}.${fileExt}`;
@@ -215,7 +244,7 @@ export default function AdminClient() {
     }
   };
 
-  // ✨ 加入了全新的“随笔评论”粉色 Tab
+  // ✨ 加入了全新的"随笔评论"粉色 Tab
   const tabs = [
     { id: 'diaries', name: '随笔管理', color: 'bg-purple-400' },
     { id: 'timeline', name: '时光轨迹', color: 'bg-blue-400' },
@@ -265,30 +294,85 @@ export default function AdminClient() {
               <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 space-y-4">
                 <input type="text" placeholder="标题" value={diaryForm.title || ''} onChange={e => setDiaryForm({...diaryForm, title: e.target.value})} className="w-full p-4 bg-[#fafafa] border border-gray-100 rounded-xl text-gray-900 placeholder-gray-400 focus:bg-white focus:border-purple-300 focus:ring-4 focus:ring-purple-100 transition-all outline-none font-medium" required />
                 <input type="date" value={diaryForm.date || ''} onChange={e => setDiaryForm({...diaryForm, date: e.target.value})} className="w-full p-4 bg-[#fafafa] border border-gray-100 rounded-xl text-gray-900 focus:bg-white focus:border-purple-300 focus:ring-4 focus:ring-purple-100 transition-all outline-none font-mono text-sm" required />
+                
+                {/* ✨ 分类选择器 */}
+                <select
+                  value={diaryForm.category_id || ''}
+                  onChange={e => setDiaryForm({...diaryForm, category_id: e.target.value})}
+                  className="w-full p-4 bg-[#fafafa] border border-gray-100 rounded-xl text-gray-900 focus:bg-white focus:border-purple-300 focus:ring-4 focus:ring-purple-100 transition-all outline-none text-sm cursor-pointer"
+                >
+                  <option value="">未分类</option>
+                  {categories.map(cat => (
+                    <option key={cat.id} value={cat.id}>{cat.name}</option>
+                  ))}
+                </select>
+
                 <textarea placeholder="摘要 (用于首页展示)" value={diaryForm.summary || ''} onChange={e => setDiaryForm({...diaryForm, summary: e.target.value})} className="w-full p-4 bg-[#fafafa] border border-gray-100 rounded-xl text-gray-900 placeholder-gray-400 focus:bg-white focus:border-purple-300 focus:ring-4 focus:ring-purple-100 transition-all outline-none h-24 resize-y text-sm" required />
                 <div className="bg-[#fafafa] border border-gray-100 rounded-xl overflow-auto resize-y focus-within:ring-4 focus-within:ring-purple-100 focus-within:border-purple-300 focus-within:bg-white transition-all" style={{ minHeight: '450px' }} onPaste={handlePaste}>
                   <ReactQuill forwardedRef={quillRef} theme="snow" value={diaryForm.content || ''} onChange={(content: string) => setDiaryForm({...diaryForm, content})} modules={quillModules} placeholder="在这里尽情排版你的随笔吧...（支持截图后直接 Ctrl+V 粘贴哦！）" />
                 </div>
                 <div className="flex gap-4 pt-4">
                   <button type="submit" disabled={loading} className="flex-1 bg-purple-500 text-white px-6 py-3.5 rounded-xl hover:bg-purple-600 font-medium transition-colors shadow-sm">{diaryForm.id ? '保存修改' : '发布随笔'}</button>
-                  {diaryForm.id && <button type="button" onClick={() => setDiaryForm({ id: '', title: '', summary: '', content: '', date: '' })} className="px-6 py-3.5 rounded-xl text-gray-600 bg-gray-100 hover:bg-gray-200 font-medium transition-colors">取消</button>}
+                  {diaryForm.id && <button type="button" onClick={() => setDiaryForm({ id: '', title: '', summary: '', content: '', date: '', category_id: '' })} className="px-6 py-3.5 rounded-xl text-gray-600 bg-gray-100 hover:bg-gray-200 font-medium transition-colors">取消</button>}
                 </div>
               </div>
             </form>
-            <div className="lg:col-span-2">
-              <h2 className="text-xl font-bold mb-6 flex items-center"><div className="shrink-0 w-2 h-6 bg-gray-400 rounded-full mr-3"></div>已发布 ({diaries.length})</h2>
-              <div className="space-y-4 max-h-[750px] overflow-y-auto pr-2 custom-scrollbar">
-                {diaries.map(d => (
-                  <div key={d.id} className="block group bg-white p-5 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md hover:border-purple-200 transition-all">
-                    <h3 className="text-lg font-bold mb-1 text-gray-800">{d.title}</h3>
-                    <p className="text-sm text-gray-400 mb-4 font-mono">{d.date}</p>
-                    <div className="flex gap-3 pt-4 border-t border-gray-50">
-                      <button type="button" onClick={() => { setDiaryForm({ id: d.id, title: d.title || '', summary: d.summary || '', content: d.content || '', date: d.date ? d.date.split('T')[0] : '' }); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className="text-sm font-medium text-purple-500 hover:text-purple-700 transition-colors flex-1 text-left">编辑这篇 →</button>
-                      <button type="button" onClick={() => deleteDiary(d.id)} className="text-sm font-medium text-red-400 hover:text-red-600 transition-colors">删除</button>
+            <div className="lg:col-span-2 space-y-8">
+              {/* 已发布随笔列表 */}
+              <div>
+                <h2 className="text-xl font-bold mb-6 flex items-center"><div className="shrink-0 w-2 h-6 bg-gray-400 rounded-full mr-3"></div>已发布 ({diaries.length})</h2>
+                <div className="space-y-4 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar">
+                  {diaries.map(d => (
+                    <div key={d.id} className="block group bg-white p-5 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md hover:border-purple-200 transition-all">
+                      <div className="flex items-start justify-between mb-1">
+                        <h3 className="text-lg font-bold text-gray-800">{d.title}</h3>
+                        {d.categories?.name && (
+                          <span className="text-[10px] font-medium text-purple-600 bg-purple-50 px-2 py-0.5 rounded-full border border-purple-100 shrink-0 ml-2">{d.categories.name}</span>
+                        )}
+                      </div>
+                      <p className="text-sm text-gray-400 mb-4 font-mono">{d.date}</p>
+                      <div className="flex gap-3 pt-4 border-t border-gray-50">
+                        <button type="button" onClick={() => { setDiaryForm({ id: d.id, title: d.title || '', summary: d.summary || '', content: d.content || '', date: d.date ? d.date.split('T')[0] : '', category_id: d.category_id || '' }); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className="text-sm font-medium text-purple-500 hover:text-purple-700 transition-colors flex-1 text-left">编辑这篇 →</button>
+                        <button type="button" onClick={() => deleteDiary(d.id)} className="text-sm font-medium text-red-400 hover:text-red-600 transition-colors">删除</button>
+                      </div>
                     </div>
+                  ))}
+                  {diaries.length === 0 && <p className="text-gray-400 italic text-center py-10">这里还空空如也</p>}
+                </div>
+              </div>
+
+              {/* ✨ 分类管理区 */}
+              <div>
+                <h2 className="text-xl font-bold mb-6 flex items-center"><div className="shrink-0 w-2 h-6 bg-indigo-400 rounded-full mr-3"></div>分类管理</h2>
+                <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
+                  <form onSubmit={saveCategory} className="flex gap-2 mb-4">
+                    <input
+                      type="text"
+                      placeholder="新分类名称"
+                      value={newCategoryName}
+                      onChange={e => setNewCategoryName(e.target.value)}
+                      className="flex-1 px-4 py-2.5 bg-[#fafafa] border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 transition-all"
+                      required
+                    />
+                    <button type="submit" disabled={loading} className="px-5 py-2.5 bg-indigo-500 text-white text-sm font-medium rounded-xl hover:bg-indigo-600 transition-colors shadow-sm shrink-0">
+                      添加
+                    </button>
+                  </form>
+                  <div className="space-y-2">
+                    {categories.map(cat => (
+                      <div key={cat.id} className="flex items-center justify-between px-4 py-2.5 bg-[#fafafa] rounded-xl group">
+                        <span className="text-sm font-medium text-gray-700">{cat.name}</span>
+                        <button
+                          onClick={() => deleteCategory(cat.id)}
+                          className="text-xs font-medium text-red-400 hover:text-red-600 transition-colors opacity-0 group-hover:opacity-100"
+                        >
+                          删除
+                        </button>
+                      </div>
+                    ))}
+                    {categories.length === 0 && <p className="text-gray-400 text-sm text-center py-4">还没有分类，在上方创建一个吧</p>}
                   </div>
-                ))}
-                {diaries.length === 0 && <p className="text-gray-400 italic text-center py-10">这里还空空如也</p>}
+                </div>
               </div>
             </div>
           </div>

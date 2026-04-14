@@ -7,14 +7,14 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 const supabase = createClient(supabaseUrl, supabaseKey);
 
-// 2. 告诉系统，这里的 params 需要“稍微等一下”才能拿到
+// 2. 告诉系统，这里的 params 需要"稍微等一下"才能拿到
 export default async function DiaryPost({ params }: { params: Promise<{ id: string }> }) {
   
   // 3. 加上 await，耐心地把真实 ID 从网址里解包出来
   const { id } = await params;
 
-  // 4. 带着真正的 ID 去云端抓数据
-  const { data: diary } = await supabase.from('diaries').select('*').eq('id', id).single();
+  // 4. 带着真正的 ID 去云端抓数据（顺带拉取分类名称）
+  const { data: diary } = await supabase.from('diaries').select('*, categories(name)').eq('id', id).single();
 
   if (!diary) {
     return (
@@ -40,7 +40,7 @@ export default async function DiaryPost({ params }: { params: Promise<{ id: stri
         <div className="flex items-center text-gray-400 text-sm font-mono">
           <span>{diary.date}</span>
           <span className="mx-3">·</span>
-          <span>随笔日记</span>
+          <span>{diary.categories?.name || '随笔日记'}</span>
         </div>
       </header>
 
@@ -114,3 +114,4 @@ export default async function DiaryPost({ params }: { params: Promise<{ id: stri
     </div>
   );
 }
+
