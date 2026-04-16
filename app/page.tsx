@@ -336,7 +336,7 @@ export default async function Home() {
         </section>
 
                   {/* 右侧：最新随笔 + 每日打卡 */}
-        <div className="md:col-span-2 flex flex-col gap-15">
+        <div className="md:col-span-2 flex flex-col gap-2">
           <DiaryList diaries={diaries || []} categories={categories || []} />
           <CheckinCard />
         </div>

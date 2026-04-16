@@ -85,7 +85,7 @@ export default function VisitorHeatmap() {
     <div>
       <h2 className="text-xl font-bold mb-6 flex items-center">
         <div className="shrink-0 w-2 h-6 bg-green-400 rounded-full mr-3"></div>
-        {monthNames[month]}足迹
+        {monthNames[month]}访客足迹
       </h2>
 
       <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
