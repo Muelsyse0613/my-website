@@ -2,6 +2,8 @@ import { createClient } from '@supabase/supabase-js';
 import VisitorHeatmap from './VisitorHeatMap';
 import DiaryList from './DiaryList';
 import SplashScreen from './SplashScreen';
+import CheckinCard from './CheckinCard';
+
 
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -312,7 +314,7 @@ export default async function Home() {
           {/* 留言板 */}
           <div className="mt-16">
             <h2 className="text-xl font-bold mb-6 flex items-center">
-              <div className="shrink-0 w-2 h-6 bg-teal-400 rounded-full mr-3"></div>
+              <div className="shrink-0 w-2 h-6 bg-amber-400 rounded-full mr-3"></div>
               留言板
             </h2>
             <div className="ml-2 pl-6">
@@ -333,9 +335,14 @@ export default async function Home() {
           </div>
         </section>
 
-        {/* 右侧：最新随笔（含分类标签） */}
-        <DiaryList diaries={diaries || []} categories={categories || []} />
+                  {/* 右侧：最新随笔 + 每日打卡 */}
+        <div className="md:col-span-2 flex flex-col gap-15">
+          <DiaryList diaries={diaries || []} categories={categories || []} />
+          <CheckinCard />
+        </div>
       </main>
+
+
 
       <footer className="mt-16 pb-8 text-center">
         <div className="border-t border-gray-200 max-w-5xl mx-auto pt-8 flex flex-col md:flex-row justify-between items-center text-sm text-gray-400 px-6">

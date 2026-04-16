@@ -16,6 +16,40 @@ const ReactQuill = dynamic(
   { ssr: false, loading: () => <p className="text-gray-400 p-4">编辑器加载中...</p> }
 );
 
+// ============================================================
+// 工具函数：北京时间（UTC+8）下的"今天是几月几号"
+// 所有打卡日期都按这个口径存，避免凌晨/深夜的时区漂移
+// ============================================================
+function getTodayInShanghai(): string {
+  // 取 UTC 时间后加 8 小时，得到上海当前时间
+  const now = new Date();
+  const shanghai = new Date(now.getTime() + 8 * 60 * 60 * 1000);
+  const y = shanghai.getUTCFullYear();
+  const m = String(shanghai.getUTCMonth() + 1).padStart(2, '0');
+  const d = String(shanghai.getUTCDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+function getShanghaiYearMonth(): { year: number; month: number } {
+  const now = new Date();
+  const shanghai = new Date(now.getTime() + 8 * 60 * 60 * 1000);
+  return { year: shanghai.getUTCFullYear(), month: shanghai.getUTCMonth() + 1 };
+}
+
+// 预设色板（你点击即可，也可以输入自定义十六进制）
+const COLOR_PRESETS = [
+  '#10b981', // 翠绿
+  '#3b82f6', // 蓝
+  '#8b5cf6', // 紫
+  '#ec4899', // 粉
+  '#f97316', // 橙
+  '#eab308', // 金
+  '#14b8a6', // 青
+  '#ef4444', // 红
+  '#6366f1', // 靛蓝
+  '#84cc16', // 黄绿
+];
+
 export default function AdminClient() {
   const [activeTab, setActiveTab] = useState('diaries');
   const [loading, setLoading] = useState(false);
@@ -31,6 +65,18 @@ export default function AdminClient() {
   // ✨ 分类功能：分类列表 & 新建分类表单
   const [categories, setCategories] = useState<any[]>([]);
   const [newCategoryName, setNewCategoryName] = useState('');
+
+  // ✨ 打卡功能：项目列表、当月全部打卡记录、表单
+  const [checkinItems, setCheckinItems] = useState<any[]>([]);
+  const [checkinRecords, setCheckinRecords] = useState<any[]>([]); // 本月全部项目的所有记录
+  const [checkinForm, setCheckinForm] = useState({
+    id: '',
+    name: '',
+    description: '',
+    theme_color: '#10b981',
+    emoji: '',
+    sort_order: 0,
+  });
 
   const [diaryForm, setDiaryForm] = useState({ id: '', title: '', summary: '', content: '', date: '', category_id: '' });
   const [timelineForm, setTimelineForm] = useState({ id: '', date: '', title: '', description: '', link_url: '' });
@@ -70,6 +116,27 @@ export default function AdminClient() {
     } else if (activeTab === 'people') {
       const { data } = await supabase.from('vip_files').select('id, name, title, date').order('created_at', { ascending: false });
       setVipList(data || []);
+    } else if (activeTab === 'checkin') {
+      // ✨ 打卡：一次性拉项目 + 本月所有记录
+      const { data: itemsData } = await supabase
+        .from('checkin_items')
+        .select('*')
+        .order('sort_order', { ascending: true })
+        .order('created_at', { ascending: true });
+      setCheckinItems(itemsData || []);
+
+      const { year, month } = getShanghaiYearMonth();
+      const firstDay = `${year}-${String(month).padStart(2, '0')}-01`;
+      // 下月 1 号
+      const nextMonth = month === 12 ? `${year + 1}-01-01` : `${year}-${String(month + 1).padStart(2, '0')}-01`;
+
+      const { data: recordsData } = await supabase
+        .from('checkin_records')
+        .select('*')
+        .gte('checked_date', firstDay)
+        .lt('checked_date', nextMonth)
+        .order('checked_at', { ascending: false });
+      setCheckinRecords(recordsData || []);
     }
     setLoading(false);
   };
@@ -179,6 +246,66 @@ export default function AdminClient() {
     fetchData();
   };
 
+  // ============================================================
+  // ✨ 打卡功能：项目 CRUD + 打卡/撤销
+  // ============================================================
+  const saveCheckinItem = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!checkinForm.name.trim()) return;
+    setLoading(true);
+    const payload = {
+      name: checkinForm.name.trim(),
+      description: checkinForm.description.trim() || null,
+      theme_color: checkinForm.theme_color,
+      emoji: checkinForm.emoji.trim() || null,
+      sort_order: Number(checkinForm.sort_order) || 0,
+    };
+    if (checkinForm.id) {
+      await supabase.from('checkin_items').update(payload).eq('id', checkinForm.id);
+      alert('打卡项目更新成功！');
+    } else {
+      await supabase.from('checkin_items').insert([payload]);
+      alert('打卡项目已创建！');
+    }
+    setCheckinForm({ id: '', name: '', description: '', theme_color: '#10b981', emoji: '', sort_order: 0 });
+    fetchData();
+  };
+
+  const deleteCheckinItem = async (id: string) => {
+    if (!window.confirm('确定要删除这个打卡项目吗？它的所有历史打卡记录也会被一并删除，该操作不可恢复。\n\n如果只是想停用但保留记录，请点"停用"按钮。')) return;
+    await supabase.from('checkin_items').delete().eq('id', id);
+    alert('已删除');
+    fetchData();
+  };
+
+  const toggleActive = async (item: any) => {
+    await supabase.from('checkin_items').update({ is_active: !item.is_active }).eq('id', item.id);
+    fetchData();
+  };
+
+  // 今日打卡 / 撤销打卡
+  const toggleCheckinToday = async (itemId: string) => {
+    const today = getTodayInShanghai();
+    const existing = checkinRecords.find(r => r.item_id === itemId && r.checked_date === today);
+    setLoading(true);
+    if (existing) {
+      // 已经打过卡 → 撤销
+      if (!window.confirm('确定要撤销今日打卡吗？')) {
+        setLoading(false);
+        return;
+      }
+      await supabase.from('checkin_records').delete().eq('id', existing.id);
+    } else {
+      // 新增打卡
+      await supabase.from('checkin_records').insert([{
+        item_id: itemId,
+        checked_date: today,
+        checked_at: new Date().toISOString(),
+      }]);
+    }
+    fetchData();
+  };
+
   const uploadImageToSupabase = async (file: File) => {
     const fileExt = file.name.split('.').pop() || 'png';
     const fileName = `${Math.random().toString(36).substring(2, 15)}_${Date.now()}.${fileExt}`;
@@ -244,10 +371,11 @@ export default function AdminClient() {
     }
   };
 
-  // ✨ 加入了全新的"随笔评论"粉色 Tab
+  // ✨ 加入了全新的"随笔评论"粉色 Tab + "每日打卡"青色 Tab
   const tabs = [
     { id: 'diaries', name: '随笔管理', color: 'bg-purple-400' },
     { id: 'timeline', name: '时光轨迹', color: 'bg-blue-400' },
+    { id: 'checkin', name: '每日打卡', color: 'bg-teal-400' },
     { id: 'article_comments', name: '随笔评论', color: 'bg-pink-400' },
     { id: 'comments', name: '全局留言板', color: 'bg-green-400' }, 
     { id: 'people', name: '重要人物', color: 'bg-orange-400' },
@@ -425,6 +553,231 @@ export default function AdminClient() {
           </div>
         )}
 
+        {/* ============================================================ */}
+        {/* ✨ 每日打卡模块 */}
+        {/* ============================================================ */}
+        {activeTab === 'checkin' && (
+          <div className="grid lg:grid-cols-5 gap-8">
+            {/* 左侧：项目管理表单 */}
+            <form onSubmit={saveCheckinItem} className="lg:col-span-2 space-y-5">
+              <h2 className="text-xl font-bold mb-6 flex items-center">
+                <div className="shrink-0 w-2 h-6 bg-teal-400 rounded-full mr-3"></div>
+                {checkinForm.id ? '编辑打卡项目' : '新建打卡项目'}
+              </h2>
+              <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 space-y-4">
+                <input
+                  type="text"
+                  placeholder="项目名称（如：每日阅读）"
+                  value={checkinForm.name}
+                  onChange={e => setCheckinForm({ ...checkinForm, name: e.target.value })}
+                  className="w-full p-4 bg-[#fafafa] border border-gray-100 rounded-xl text-gray-900 placeholder-gray-400 focus:bg-white focus:border-teal-300 focus:ring-4 focus:ring-teal-100 transition-all outline-none font-medium"
+                  required
+                />
+                <input
+                  type="text"
+                  placeholder="Emoji 图标（可选，如：📖）"
+                  value={checkinForm.emoji}
+                  onChange={e => setCheckinForm({ ...checkinForm, emoji: e.target.value })}
+                  maxLength={4}
+                  className="w-full p-4 bg-[#fafafa] border border-gray-100 rounded-xl text-gray-900 placeholder-gray-400 focus:bg-white focus:border-teal-300 focus:ring-4 focus:ring-teal-100 transition-all outline-none"
+                />
+                <textarea
+                  placeholder="描述（可选，展示在详情页）"
+                  value={checkinForm.description}
+                  onChange={e => setCheckinForm({ ...checkinForm, description: e.target.value })}
+                  className="w-full p-4 bg-[#fafafa] border border-gray-100 rounded-xl text-gray-900 placeholder-gray-400 focus:bg-white focus:border-teal-300 focus:ring-4 focus:ring-teal-100 transition-all outline-none h-20 resize-y text-sm"
+                />
+
+                {/* 主题色选择 */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-600 mb-2">主题色</label>
+                  <div className="flex flex-wrap gap-2 mb-3">
+                    {COLOR_PRESETS.map(c => (
+                      <button
+                        type="button"
+                        key={c}
+                        onClick={() => setCheckinForm({ ...checkinForm, theme_color: c })}
+                        className={`w-8 h-8 rounded-lg transition-all ${checkinForm.theme_color === c ? 'ring-2 ring-offset-2 ring-gray-400 scale-110' : 'hover:scale-110'}`}
+                        style={{ backgroundColor: c }}
+                        aria-label={`选择颜色 ${c}`}
+                      />
+                    ))}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="color"
+                      value={checkinForm.theme_color}
+                      onChange={e => setCheckinForm({ ...checkinForm, theme_color: e.target.value })}
+                      className="w-12 h-10 rounded-lg border border-gray-200 cursor-pointer"
+                    />
+                    <input
+                      type="text"
+                      value={checkinForm.theme_color}
+                      onChange={e => setCheckinForm({ ...checkinForm, theme_color: e.target.value })}
+                      className="flex-1 px-3 py-2 bg-[#fafafa] border border-gray-100 rounded-lg font-mono text-sm focus:outline-none focus:ring-2 focus:ring-teal-200"
+                      placeholder="#10b981"
+                    />
+                  </div>
+                </div>
+
+                <input
+                  type="number"
+                  placeholder="排序（数字越小越靠前，默认 0）"
+                  value={checkinForm.sort_order}
+                  onChange={e => setCheckinForm({ ...checkinForm, sort_order: Number(e.target.value) })}
+                  className="w-full p-4 bg-[#fafafa] border border-gray-100 rounded-xl text-gray-900 placeholder-gray-400 focus:bg-white focus:border-teal-300 focus:ring-4 focus:ring-teal-100 transition-all outline-none text-sm"
+                />
+
+                <div className="flex gap-4 pt-4">
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="flex-1 bg-teal-500 text-white px-6 py-3.5 rounded-xl hover:bg-teal-600 font-medium transition-colors shadow-sm"
+                  >
+                    {checkinForm.id ? '保存修改' : '创建项目'}
+                  </button>
+                  {checkinForm.id && (
+                    <button
+                      type="button"
+                      onClick={() => setCheckinForm({ id: '', name: '', description: '', theme_color: '#10b981', emoji: '', sort_order: 0 })}
+                      className="px-6 py-3.5 rounded-xl text-gray-600 bg-gray-100 hover:bg-gray-200 font-medium transition-colors"
+                    >
+                      取消
+                    </button>
+                  )}
+                </div>
+              </div>
+            </form>
+
+            {/* 右侧：今日打卡操作台 + 项目列表 */}
+            <div className="lg:col-span-3 space-y-8">
+              {/* 今日一键打卡 */}
+              <div>
+                <h2 className="text-xl font-bold mb-6 flex items-center">
+                  <div className="shrink-0 w-2 h-6 bg-teal-400 rounded-full mr-3"></div>
+                  今日打卡 <span className="ml-2 text-sm text-gray-400 font-mono font-normal">{getTodayInShanghai()}</span>
+                </h2>
+                <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 space-y-3">
+                  {checkinItems.filter(i => i.is_active).length === 0 && (
+                    <p className="text-gray-400 italic text-center py-6">还没有启用中的打卡项目，请先在左侧创建</p>
+                  )}
+                  {checkinItems.filter(i => i.is_active).map(item => {
+                    const today = getTodayInShanghai();
+                    const todayRecord = checkinRecords.find(r => r.item_id === item.id && r.checked_date === today);
+                    const monthCount = checkinRecords.filter(r => r.item_id === item.id).length;
+                    return (
+                      <div key={item.id} className="flex items-center justify-between gap-3 p-4 rounded-xl bg-[#fafafa] border border-gray-100">
+                        <div className="flex items-center gap-3 min-w-0 flex-1">
+                          <div
+                            className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 text-lg"
+                            style={{ backgroundColor: item.theme_color + '22', color: item.theme_color }}
+                          >
+                            {item.emoji || '✓'}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="font-medium text-gray-800 truncate">{item.name}</p>
+                            <p className="text-xs text-gray-400 font-mono mt-0.5">
+                              本月 {monthCount} 次
+                              {todayRecord && ` · 今日 ${new Date(todayRecord.checked_at).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false })}`}
+                            </p>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => toggleCheckinToday(item.id)}
+                          disabled={loading}
+                          className="px-5 py-2.5 rounded-xl font-medium text-sm transition-all shadow-sm shrink-0"
+                          style={{
+                            backgroundColor: todayRecord ? '#f3f4f6' : item.theme_color,
+                            color: todayRecord ? '#6b7280' : '#ffffff',
+                          }}
+                        >
+                          {todayRecord ? '✓ 已打卡（点击撤销）' : '打卡'}
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* 全部项目列表 */}
+              <div>
+                <h2 className="text-xl font-bold mb-6 flex items-center">
+                  <div className="shrink-0 w-2 h-6 bg-gray-400 rounded-full mr-3"></div>
+                  全部项目 ({checkinItems.length})
+                </h2>
+                <div className="space-y-3">
+                  {checkinItems.map(item => (
+                    <div
+                      key={item.id}
+                      className={`bg-white p-5 rounded-2xl shadow-sm border transition-all ${item.is_active ? 'border-gray-100' : 'border-gray-100 opacity-60'}`}
+                    >
+                      <div className="flex items-center gap-3 mb-3">
+                        <div
+                          className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 text-lg"
+                          style={{ backgroundColor: item.theme_color + '22', color: item.theme_color }}
+                        >
+                          {item.emoji || '✓'}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <h3 className="text-base font-bold text-gray-800 truncate">{item.name}</h3>
+                            {!item.is_active && (
+                              <span className="text-[10px] font-medium text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full shrink-0">已停用</span>
+                            )}
+                          </div>
+                          {item.description && <p className="text-xs text-gray-500 truncate">{item.description}</p>}
+                        </div>
+                        <div
+                          className="w-3 h-3 rounded-full shrink-0"
+                          style={{ backgroundColor: item.theme_color }}
+                          title={item.theme_color}
+                        />
+                      </div>
+                      <div className="flex gap-3 pt-3 border-t border-gray-50 text-sm">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setCheckinForm({
+                              id: item.id,
+                              name: item.name || '',
+                              description: item.description || '',
+                              theme_color: item.theme_color || '#10b981',
+                              emoji: item.emoji || '',
+                              sort_order: item.sort_order || 0,
+                            });
+                            window.scrollTo({ top: 0, behavior: 'smooth' });
+                          }}
+                          className="font-medium text-teal-500 hover:text-teal-700 transition-colors flex-1 text-left"
+                        >
+                          编辑 →
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => toggleActive(item)}
+                          className="font-medium text-gray-500 hover:text-gray-700 transition-colors"
+                        >
+                          {item.is_active ? '停用' : '启用'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => deleteCheckinItem(item.id)}
+                          className="font-medium text-red-400 hover:text-red-600 transition-colors"
+                        >
+                          删除
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                  {checkinItems.length === 0 && (
+                    <p className="text-gray-400 italic text-center py-10">还没有任何打卡项目</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* ✨ 新增的随笔评论专属控制台模块 */}
         {activeTab === 'article_comments' && (
           <div>
@@ -556,3 +909,4 @@ export default function AdminClient() {
     </div>
   );
 }
+

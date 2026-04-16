@@ -11,7 +11,7 @@ export default function DiaryList({ diaries, categories }: { diaries: any[]; cat
       : diaries.filter((d) => d.category_id === activeCategory);
 
   return (
-    <section className="md:col-span-2">
+    <section>
       <h2 className="text-xl font-bold mb-6 flex items-center">
         <div className="shrink-0 w-2 h-6 bg-purple-400 rounded-full mr-3"></div>
         最新随笔
@@ -80,3 +80,4 @@ export default function DiaryList({ diaries, categories }: { diaries: any[]; cat
     </section>
   );
 }
+
