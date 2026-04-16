@@ -1,6 +1,8 @@
 import { createClient } from '@supabase/supabase-js';
 import VisitorHeatmap from './VisitorHeatMap';
 import DiaryList from './DiaryList';
+import SplashScreen from './SplashScreen';
+
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -39,13 +41,19 @@ export default async function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-[#fafafa] text-gray-800 font-sans flex flex-col">
-      <header className="relative h-64 flex items-center justify-center overflow-hidden bg-gradient-to-r from-blue-100 to-purple-100 shrink-0">
-        <div className="text-center z-10">
-          <h1 className="text-4xl font-bold text-gray-800 tracking-wider mb-2">我的个人宇宙</h1>
-          <p className="text-gray-600">生活、学习与碎碎念</p>
-        </div>
-      </header>
+  <div className="min-h-screen bg-[#fafafa] text-gray-800 font-sans flex flex-col">
+    {/* ✨ 加上入场动画 */}
+    <SplashScreen />
+
+    <header className="relative h-64 flex items-center justify-center overflow-hidden bg-gradient-to-r from-blue-100 to-purple-100 shrink-0">
+      <div className="text-center z-10">
+        {/* ✨ 加上 id，让 SplashScreen 能测量标题位置 */}
+        <h1 id="header-title" className="text-4xl font-bold text-gray-800 tracking-wider mb-2">我的个人宇宙</h1>
+        <p className="text-gray-600">生活、学习与碎碎念</p>
+      </div>
+    </header>
+    {/* ...后面的代码不用动... */}
+
 
       <main className="max-w-5xl mx-auto p-6 mt-8 grid md:grid-cols-3 gap-12 flex-grow">
         {/* 左侧栏 */}

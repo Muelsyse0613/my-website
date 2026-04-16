@@ -80,5 +80,3 @@ export default function DiaryList({ diaries, categories }: { diaries: any[]; cat
     </section>
   );
 }
-
-
