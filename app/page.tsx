@@ -10,25 +10,34 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 const supabase = createClient(supabaseUrl, supabaseKey);
 
-export const revalidate = 0;
+export const revalidate = 60;
 
 export default async function Home() {
-  const { data: diaries } = await supabase
+  const [diariesRes, timelinesRes, categoriesRes] = await Promise.all([
+  supabase
     .from('diaries')
-    .select('*, categories(name)')
+    .select('id,title,summary,date,category_id,categories(name)')
     .order('date', { ascending: false })
-    .order('created_at', { ascending: false });
+    .order('created_at', { ascending: false })
+    .limit(10),
 
-  const { data: timelines } = await supabase
+  supabase
     .from('timeline')
-    .select('*')
-    .order('date', { ascending: false });
+    .select('id,date,title,description,link_url')
+    .order('date', { ascending: false })
+    .limit(20),
 
-  const { data: categories } = await supabase
+  supabase
     .from('categories')
-    .select('*')
+    .select('id,name,sort_order')
     .order('sort_order', { ascending: true })
-    .order('created_at', { ascending: true });
+    .order('created_at', { ascending: true }),
+]);
+
+const diaries = diariesRes.data ?? [];
+const timelines = timelinesRes.data ?? [];
+const categories = categoriesRes.data ?? [];
+
 
   const halfDotStyle: React.CSSProperties = {
     width: '6px',
