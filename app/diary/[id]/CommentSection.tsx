@@ -1,131 +1,341 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { createBrowserClient } from '@supabase/ssr';
 
+type CommentItem = {
+  id: string;
+  post_id: string;
+  nickname?: string | null;
+  content?: string | null;
+  author_reply?: string | null;
+  status?: string | null;
+  created_at?: string | null;
+};
+
+const COMMENT_STYLE = `
+  .comment-station {
+    position: relative;
+  }
+
+  .comment-glass {
+    position: relative;
+    overflow: hidden;
+    border-radius: 1.75rem;
+    border: 1px solid rgba(255, 255, 255, 0.72);
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.86), rgba(255, 255, 255, 0.62));
+    box-shadow: 0 20px 58px rgba(31, 41, 55, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.88);
+    backdrop-filter: blur(22px);
+  }
+
+  .comment-glass::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    background:
+      linear-gradient(90deg, rgba(90, 167, 255, 0.10), transparent 28%, transparent 72%, rgba(167, 139, 250, 0.10)),
+      linear-gradient(180deg, rgba(255, 255, 255, 0.55), transparent 38%);
+    opacity: 0.72;
+  }
+
+  .comment-inner {
+    position: relative;
+    z-index: 1;
+  }
+
+  .comment-card {
+    transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
+  }
+
+  .comment-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 20px 42px rgba(31, 41, 55, 0.09);
+  }
+
+  .comment-input {
+    width: 100%;
+    border-radius: 1rem;
+    border: 1px solid rgba(148, 163, 184, 0.22);
+    background: rgba(248, 250, 252, 0.78);
+    padding: 0.95rem 1rem;
+    color: #172033;
+    outline: none;
+    transition: border-color 180ms ease, background 180ms ease, box-shadow 180ms ease;
+  }
+
+  .comment-input:focus {
+    border-color: rgba(167, 139, 250, 0.72);
+    background: rgba(255, 255, 255, 0.94);
+    box-shadow: 0 0 0 4px rgba(167, 139, 250, 0.13);
+  }
+
+  .comment-action-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid rgba(109, 40, 217, 0.14);
+    background: rgba(255, 255, 255, 0.72);
+    color: #6d28d9;
+    border-radius: 999px;
+    padding: 0.78rem 1.2rem;
+    font-size: 0.88rem;
+    font-weight: 900;
+    backdrop-filter: blur(16px);
+    box-shadow: 0 12px 30px rgba(109, 40, 217, 0.08);
+    transition: transform 180ms ease, color 180ms ease, box-shadow 180ms ease, background 180ms ease, opacity 180ms ease;
+  }
+
+  .comment-action-button:hover {
+    color: #581c87;
+    background: rgba(255, 255, 255, 0.94);
+    transform: translateY(-2px);
+    box-shadow: 0 18px 38px rgba(109, 40, 217, 0.14);
+  }
+
+  .comment-action-button:disabled {
+    cursor: not-allowed;
+    opacity: 0.48;
+    transform: none;
+    box-shadow: none;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .comment-card:hover,
+    .comment-action-button:hover {
+      transform: none;
+    }
+  }
+`;
+
 export default function CommentSection({ postId }: { postId: string }) {
-  const [comments, setComments] = useState<any[]>([]);
+  const [comments, setComments] = useState<CommentItem[]>([]);
   const [nickname, setNickname] = useState('');
   const [content, setContent] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [loading, setLoading] = useState(true);
 
-  const supabase = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  const supabase = useMemo(
+    () =>
+      createBrowserClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+      ),
+    []
   );
 
   const fetchComments = async () => {
-    const { data } = await supabase
+    setLoading(true);
+
+    const { data, error } = await supabase
       .from('post_comments')
       .select('*')
       .eq('post_id', postId)
-      .order('created_at', { ascending: true }); 
-    if (data) setComments(data);
+      .or('status.is.null,status.neq.hidden')
+      .order('created_at', { ascending: true });
+
+    setLoading(false);
+
+    if (error) {
+      console.error('Failed to fetch comments:', error.message);
+      return;
+    }
+
+    setComments((data || []) as CommentItem[]);
   };
 
   useEffect(() => {
     fetchComments();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [postId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!nickname.trim() || !content.trim()) return;
-    
+
+    const cleanNickname = nickname.trim();
+    const cleanContent = content.trim();
+
+    if (!cleanNickname || !cleanContent || isSubmitting) return;
+
     setIsSubmitting(true);
-    const { error } = await supabase
-      .from('post_comments')
-      .insert([{ post_id: postId, nickname: nickname.trim(), content: content.trim() }]);
+
+    const { error } = await supabase.from('post_comments').insert([
+      {
+        post_id: postId,
+        nickname: cleanNickname,
+        content: cleanContent,
+        status: 'unread',
+      },
+    ]);
 
     setIsSubmitting(false);
-    
-    if (!error) {
-      setNickname('');
-      setContent('');
-      fetchComments(); 
-    } else {
-      alert('评论发送失败，请检查网络~');
+
+    if (error) {
+      console.error('Failed to submit comment:', error.message);
+      alert('评论发送失败，请稍后再试~');
+      return;
     }
+
+    setNickname('');
+    setContent('');
+    fetchComments();
   };
 
   return (
-    <div className="mt-32 pt-16 border-t border-gray-100">
-      <h3 className="text-xl font-bold mb-8 flex items-center text-gray-800">
-        <span className="w-2 h-6 bg-purple-400 rounded-full mr-3"></span>
-        评论区 ({comments.length})
-      </h3>
+    <section className="comment-station">
+      <style dangerouslySetInnerHTML={{ __html: COMMENT_STYLE }} />
 
-      <div className="space-y-8 mb-16">
-        {comments.map((comment) => (
-          /* 【外层卡片】增强阴影 (shadow-md)，使其明显浮在背景上 */
-          <div key={comment.id} className="bg-white p-6 md:p-8 rounded-2xl shadow-md border border-gray-100 transition-all hover:shadow-lg">
-            
-            <div className="flex items-center justify-between mb-4">
-              <span className="font-bold text-gray-800 text-base">{comment.nickname}</span>
-              <span className="text-xs text-gray-400 font-mono bg-gray-50 px-2 py-1 rounded-md">
-                {new Date(comment.created_at).toLocaleString()}
-              </span>
-            </div>
-            
-            <p className="text-gray-600 text-base leading-relaxed whitespace-pre-wrap">{comment.content}</p>
+      <div className="mb-12 sm:mb-14">
+        <p className="text-xs font-black uppercase tracking-[0.22em] text-slate-400">
+          Guest Signal / Comment
+        </p>
 
-            {/* 【内层回复卡片】拉开间距 (mt-6)，使用柔和背景与独立小阴影使其浮在评论内 */}
-            {comment.author_reply && (
-              <div className="mt-6 bg-purple-50 p-5 rounded-xl border border-purple-100 shadow-sm relative overflow-hidden">
-                {/* 左侧的紫色装饰小彩条，增加精致感 */}
-                <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-purple-400 to-purple-300"></div>
-                
-                <span className="text-sm font-bold text-purple-600 flex items-center mb-2 pl-2">
-                  <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"></path></svg>
-                  博主回复：
-                </span>
-                
-                <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap pl-2">
-                  {comment.author_reply}
-                </p>
-              </div>
-            )}
-          </div>
-        ))}
-        
-        {comments.length === 0 && (
-          <div className="text-center py-12 text-gray-400 italic text-sm bg-white rounded-2xl border border-gray-200 border-dashed shadow-sm">
-            还没有人评论，快来抢沙发吧！
-          </div>
-        )}
+        <h2 className="mt-4 flex items-center text-2xl font-black tracking-tight text-slate-950 sm:text-3xl">
+          <span className="mr-3 h-8 w-2 shrink-0 rounded-full bg-gradient-to-b from-purple-400 to-fuchsia-300 shadow-[0_0_24px_rgba(168,85,247,0.34)]" />
+          评论区
+          <span className="ml-3 rounded-full border border-purple-100 bg-purple-50 px-3 py-1 text-sm font-black text-purple-500">
+            {comments.length}
+          </span>
+        </h2>
+
+        <p className="mt-5 text-sm leading-7 text-slate-500">
+          在这篇随笔下面留下一条信号。你的评论会进入后台，博主可以统一查看和回复。
+        </p>
       </div>
 
-      <form onSubmit={handleSubmit} className="bg-white p-6 md:p-8 rounded-2xl shadow-md border border-gray-100 space-y-5 relative overflow-hidden">
-        {/* 表单顶部的装饰线 */}
-        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-gray-100 via-purple-200 to-gray-100"></div>
-        
-        <h4 className="text-base font-bold text-gray-800 mb-2">发表你的看法</h4>
-        <div className="grid grid-cols-1 gap-5">
-          <input 
-            type="text" 
-            placeholder="你的昵称" 
-            value={nickname}
-            onChange={(e) => setNickname(e.target.value)}
-            className="w-full px-5 py-3.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-purple-400 bg-gray-50 focus:bg-white transition-all text-sm font-medium"
-            maxLength={20}
-            required
-          />
-          <textarea 
-            placeholder="写下你的想法..." 
-            value={content}
-            onChange={(e) => setContent(e.target.value)}
-            className="w-full px-5 py-4 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-purple-400 bg-gray-50 focus:bg-white transition-all min-h-[120px] resize-y text-sm leading-relaxed"
-            maxLength={500}
-            required
-          />
+      <div style={{ marginBottom: '1.5rem' }} className="flex flex-col gap-4 sm:gap-5">
+        {loading && (
+          <div className="comment-glass rounded-[1.75rem] p-6">
+            <div className="comment-inner text-sm font-semibold text-slate-400">
+              正在接收评论信号...
+            </div>
+          </div>
+        )}
+
+        {!loading && comments.length === 0 && (
+          <div className="comment-glass rounded-[1.75rem] p-8 text-center">
+            <div className="comment-inner">
+              <p className="text-sm font-semibold text-slate-400">
+                还没有人评论，快来抢沙发吧！
+              </p>
+            </div>
+          </div>
+        )}
+
+        {!loading &&
+          comments.map((comment) => (
+            <article
+              key={comment.id}
+              className="comment-glass comment-card rounded-[1.75rem] p-6 sm:p-7"
+            >
+              <div className="comment-inner">
+                <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-purple-100 to-sky-100 text-sm font-black text-purple-500">
+                      {(comment.nickname || '访客').slice(0, 1).toUpperCase()}
+                    </div>
+
+                    <div>
+                      <p className="font-black text-slate-800">
+                        {comment.nickname || '匿名访客'}
+                      </p>
+                      <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-400">
+                        Visitor Signal
+                      </p>
+                    </div>
+                  </div>
+
+                  <time className="rounded-full border border-slate-200/70 bg-white/60 px-3 py-1 text-xs font-bold text-slate-400">
+                    {formatDateTime(comment.created_at)}
+                  </time>
+                </div>
+
+                <p className="whitespace-pre-wrap text-base leading-8 text-slate-600">
+                  {comment.content}
+                </p>
+
+                {comment.author_reply && (
+                  <div className="mt-7 overflow-hidden rounded-[1.25rem] border border-purple-100 bg-purple-50/70 p-5">
+                    <p className="mb-3 flex items-center text-sm font-black text-purple-600">
+                      <span className="mr-2 inline-flex h-5 w-5 items-center justify-center rounded-full bg-purple-500 text-[10px] text-white">
+                        H
+                      </span>
+                      博主回复
+                    </p>
+
+                    <p className="whitespace-pre-wrap pl-7 text-sm leading-7 text-slate-700">
+                      {comment.author_reply}
+                    </p>
+                  </div>
+                )}
+              </div>
+            </article>
+          ))}
+      </div>
+
+      <form onSubmit={handleSubmit} className="comment-glass rounded-[1.75rem] p-6 sm:p-8">
+        <div className="comment-inner">
+          <div className="mb-6">
+            <p className="text-xs font-black uppercase tracking-[0.2em] text-slate-400">
+              Send Signal
+            </p>
+            <h3 className="mt-3 text-xl font-black text-slate-900">
+              发表你的看法
+            </h3>
+          </div>
+
+          <div className="grid gap-5">
+            <input
+              type="text"
+              placeholder="你的昵称"
+              value={nickname}
+              onChange={(e) => setNickname(e.target.value)}
+              className="comment-input text-sm font-semibold"
+              maxLength={20}
+              required
+            />
+
+            <textarea
+              placeholder="写下你的想法..."
+              value={content}
+              onChange={(e) => setContent(e.target.value)}
+              className="comment-input min-h-[130px] resize-y text-sm leading-7"
+              maxLength={500}
+              required
+            />
+          </div>
+
+          <div className="mt-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-xs font-semibold text-slate-400">
+              昵称最多 20 字，评论最多 500 字。发送后会显示在当前随笔下方。
+            </p>
+
+            <button
+              type="submit"
+              disabled={isSubmitting || !nickname.trim() || !content.trim()}
+              className="comment-action-button"
+            >
+              {isSubmitting ? '发送中...' : '发射评论 🚀'}
+            </button>
+          </div>
         </div>
-        <button 
-          type="submit" 
-          disabled={isSubmitting}
-          className="w-full md:w-auto bg-gray-800 text-white font-medium px-8 py-3.5 rounded-xl hover:bg-purple-600 transition-colors disabled:opacity-50 text-sm shadow-sm"
-        >
-          {isSubmitting ? '发送中...' : '发射评论 🚀'}
-        </button>
       </form>
-    </div>
+    </section>
   );
+}
+
+function formatDateTime(input?: string | null) {
+  if (!input) return '刚刚';
+
+  const date = new Date(input);
+  if (Number.isNaN(date.getTime())) return input;
+
+  return new Intl.DateTimeFormat('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(date);
 }

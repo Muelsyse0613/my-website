@@ -29,6 +29,7 @@ export default async function CheckinPage() {
       <div className="max-w-5xl mx-auto px-6 pt-10 pb-6 flex items-center justify-between">
         <Link
           href="/"
+          scroll={false}
           className="text-sm font-medium text-gray-500 hover:text-gray-800 transition-colors flex items-center gap-1"
         >
           ← 返回首页

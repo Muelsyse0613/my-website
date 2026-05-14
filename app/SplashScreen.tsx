@@ -1,308 +1,603 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
+
+type SplashPhase = 'animate' | 'done';
+
+const SPLASH_STORAGE_KEY = 'splash_played_v5';
+const SPLASH_DURATION = 3600;
+
+const PRECHECK_SCRIPT = `
+  try {
+    if (window.sessionStorage && window.sessionStorage.getItem('${SPLASH_STORAGE_KEY}')) {
+      var style = document.createElement('style');
+      style.setAttribute('data-hsy-splash-prehide', 'true');
+      style.textContent = '#hsy-splash-root{display:none!important}';
+      document.head.appendChild(style);
+    }
+  } catch (error) {}
+`;
+
+const SPLASH_STYLE = `
+  .splash-shell {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    overflow: hidden;
+    color: #172033;
+    background:
+      radial-gradient(circle at 18% 18%, rgba(90, 167, 255, 0.24), transparent 34%),
+      radial-gradient(circle at 82% 14%, rgba(167, 139, 250, 0.20), transparent 32%),
+      radial-gradient(circle at 50% 82%, rgba(45, 212, 191, 0.13), transparent 36%),
+      linear-gradient(135deg, #fbfcff 0%, #edf6ff 46%, #f5f0ff 100%);
+    animation: splashExit 3400ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  }
+
+  .splash-shell::before {
+    content: "";
+    position: absolute;
+    inset: -22%;
+    background:
+      radial-gradient(circle at 22% 24%, rgba(90, 167, 255, 0.17), transparent 28%),
+      radial-gradient(circle at 78% 16%, rgba(167, 139, 250, 0.16), transparent 30%),
+      radial-gradient(circle at 44% 78%, rgba(251, 113, 133, 0.08), transparent 34%);
+    filter: blur(42px);
+    animation: splashNebula 3400ms ease-in-out forwards;
+  }
+
+  .splash-shell::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    opacity: 0.48;
+    background-image:
+      linear-gradient(rgba(23, 32, 51, 0.035) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(23, 32, 51, 0.035) 1px, transparent 1px);
+    background-size: 44px 44px;
+    mask-image: radial-gradient(circle at center, black 0%, transparent 74%);
+    animation: splashGrid 3400ms ease forwards;
+  }
+
+  .splash-noise {
+    position: absolute;
+    inset: 0;
+    opacity: 0.075;
+    mix-blend-mode: overlay;
+    pointer-events: none;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+
+  .splash-center {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    padding: 1.5rem;
+  }
+
+  .splash-panel {
+    position: relative;
+    width: min(42rem, 100%);
+    overflow: hidden;
+    border-radius: 2rem;
+    border: 1px solid rgba(255, 255, 255, 0.68);
+    background: rgba(255, 255, 255, 0.42);
+    box-shadow:
+      0 28px 90px rgba(31, 41, 55, 0.10),
+      inset 0 1px 0 rgba(255, 255, 255, 0.88);
+    backdrop-filter: blur(24px);
+    animation: splashPanelIn 620ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  .splash-panel::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background:
+      linear-gradient(90deg, rgba(90, 167, 255, 0.12), transparent 34%, transparent 68%, rgba(167, 139, 250, 0.10)),
+      linear-gradient(180deg, rgba(255, 255, 255, 0.58), transparent 42%);
+  }
+
+  .splash-scan {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: linear-gradient(90deg, transparent, rgba(90, 167, 255, 0.24), transparent);
+    width: 36%;
+    transform: skewX(-18deg) translateX(-150%);
+    animation: splashScan 1550ms ease 430ms both;
+  }
+
+  .splash-inner {
+    position: relative;
+    z-index: 1;
+    padding: 1.35rem;
+  }
+
+  @media (min-width: 640px) {
+    .splash-inner {
+      padding: 1.75rem;
+    }
+  }
+
+  .splash-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid rgba(15, 23, 42, 0.06);
+  }
+
+  .splash-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55rem;
+    color: #64748b;
+    font-size: 0.68rem;
+    font-weight: 900;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+  }
+
+  .splash-dot {
+    width: 0.58rem;
+    height: 0.58rem;
+    border-radius: 999px;
+    background: #2dd4bf;
+    box-shadow: 0 0 0 6px rgba(45, 212, 191, 0.12), 0 0 18px rgba(45, 212, 191, 0.58);
+    animation: splashDotPulse 820ms ease-in-out infinite;
+  }
+
+  .splash-version {
+    border: 1px solid rgba(148, 163, 184, 0.22);
+    background: rgba(255, 255, 255, 0.56);
+    color: #94a3b8;
+    border-radius: 999px;
+    padding: 0.32rem 0.58rem;
+    font-size: 0.62rem;
+    font-weight: 900;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+  }
+
+  .splash-body {
+    position: relative;
+    display: grid;
+    gap: 1.2rem;
+    padding-top: 1.35rem;
+  }
+
+  @media (min-width: 768px) {
+    .splash-body {
+      grid-template-columns: 1fr 12rem;
+      align-items: center;
+    }
+  }
+
+  .splash-terminal {
+    min-width: 0;
+    font-family: var(--font-geist-mono), ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    color: #475569;
+    font-size: 0.88rem;
+    font-weight: 700;
+    line-height: 1.85;
+  }
+
+  @media (min-width: 640px) {
+    .splash-terminal {
+      font-size: 1rem;
+      line-height: 1.95;
+    }
+  }
+
+  .splash-line {
+    display: block;
+    min-height: 1.75em;
+    white-space: nowrap;
+  }
+
+  .splash-prefix {
+    color: #94a3b8;
+    user-select: none;
+  }
+
+  .splash-type {
+    display: inline-block;
+    max-width: 0;
+    overflow: hidden;
+    vertical-align: bottom;
+    white-space: nowrap;
+  }
+
+  .splash-line-1 .splash-type {
+    animation: splashType 340ms steps(20, end) 160ms forwards;
+  }
+
+  .splash-line-2 .splash-type {
+    animation: splashType 440ms steps(26, end) 560ms forwards;
+  }
+
+  .splash-line-3 .splash-type {
+    color: #0369a1;
+    animation: splashType 260ms steps(15, end) 1280ms forwards;
+  }
+
+  .splash-line-4 .splash-type {
+    color: #7e22ce;
+    animation: splashType 280ms steps(16, end) 1660ms forwards;
+  }
+
+  .splash-line-3,
+  .splash-line-4 {
+    opacity: 0;
+    animation: splashLineIn 160ms ease forwards;
+  }
+
+  .splash-line-3 {
+    animation-delay: 1220ms;
+  }
+
+  .splash-line-4 {
+    animation-delay: 1600ms;
+  }
+
+  .splash-cursor {
+    display: inline-block;
+    width: 0.55em;
+    height: 1.05em;
+    margin-left: 0.08em;
+    border-radius: 0.14em;
+    transform: translateY(0.16em);
+    background: #38bdf8;
+    box-shadow: 0 0 14px rgba(56, 189, 248, 0.75);
+    animation:
+      splashCursorBlink 620ms steps(2, start) infinite,
+      splashCursorOut 160ms ease 1220ms forwards;
+  }
+
+  .splash-map {
+    position: relative;
+    height: 11.5rem;
+    min-height: 11.5rem;
+    overflow: hidden;
+    border-radius: 1.5rem;
+    border: 1px solid rgba(255, 255, 255, 0.56);
+    background:
+      radial-gradient(circle at 48% 46%, rgba(90, 167, 255, 0.11), transparent 36%),
+      radial-gradient(circle at 70% 28%, rgba(167, 139, 250, 0.09), transparent 34%),
+      rgba(255, 255, 255, 0.30);
+  }
+
+  .splash-map svg {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+  }
+
+  .splash-orbit {
+    fill: none;
+    stroke: rgba(90, 167, 255, 0.26);
+    stroke-width: 1;
+    stroke-dasharray: 320;
+    stroke-dashoffset: 320;
+    vector-effect: non-scaling-stroke;
+    animation: splashOrbit 820ms ease 480ms forwards;
+  }
+
+  .splash-link {
+    stroke: rgba(90, 167, 255, 0.28);
+    stroke-width: 1.05;
+    stroke-linecap: round;
+    vector-effect: non-scaling-stroke;
+    opacity: 0;
+    animation: splashLinkIn 520ms ease forwards;
+  }
+
+  .splash-link:nth-of-type(3) { animation-delay: 760ms; }
+  .splash-link:nth-of-type(4) { animation-delay: 860ms; }
+  .splash-link:nth-of-type(5) { animation-delay: 960ms; }
+  .splash-link:nth-of-type(6) { animation-delay: 1060ms; }
+  .splash-link:nth-of-type(7) { animation-delay: 1160ms; }
+
+  .splash-pulse-ring {
+    fill: none;
+    stroke: rgba(167, 139, 250, 0.18);
+    stroke-width: 1;
+    opacity: 0;
+    transform-origin: center;
+    vector-effect: non-scaling-stroke;
+    animation: splashPulseRing 1200ms ease 1120ms forwards;
+  }
+
+  .splash-node {
+    fill: rgba(90, 167, 255, 0.72);
+    opacity: 0;
+    transform-origin: center;
+    animation: splashNode 420ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  }
+
+  .splash-node-core {
+    fill: rgba(167, 139, 250, 0.72);
+  }
+
+  .splash-node:nth-of-type(1) { animation-delay: 540ms; }
+  .splash-node:nth-of-type(2) { animation-delay: 660ms; }
+  .splash-node:nth-of-type(3) { animation-delay: 780ms; }
+  .splash-node:nth-of-type(4) { animation-delay: 900ms; }
+  .splash-node:nth-of-type(5) { animation-delay: 1020ms; }
+  .splash-node:nth-of-type(6) { animation-delay: 1140ms; }
+
+  .splash-progress {
+    height: 0.25rem;
+    margin-top: 1.35rem;
+    overflow: hidden;
+    border-radius: 999px;
+    background: rgba(15, 23, 42, 0.06);
+  }
+
+  .splash-progress span {
+    display: block;
+    width: 100%;
+    height: 100%;
+    border-radius: inherit;
+    background: linear-gradient(90deg, #93c5fd, #c4b5fd, #5eead4);
+    box-shadow: 0 0 18px rgba(90, 167, 255, 0.35);
+    transform: translateX(-100%);
+    animation: splashProgress 2350ms cubic-bezier(0.22, 1, 0.36, 1) 220ms forwards;
+  }
+
+  .splash-foot {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-top: 1rem;
+    color: #94a3b8;
+    font-size: 0.62rem;
+    font-weight: 900;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+  }
+
+  @keyframes splashExit {
+    0%, 80% { opacity: 1; }
+    100% { opacity: 0; }
+  }
+
+  @keyframes splashNebula {
+    from { transform: translate3d(-1.5%, -1%, 0) scale(1); }
+    to { transform: translate3d(1.5%, 1%, 0) scale(1.04); }
+  }
+
+  @keyframes splashGrid {
+    0% { opacity: 0; transform: scale(1.02); }
+    22%, 80% { opacity: 0.48; transform: scale(1); }
+    100% { opacity: 0; transform: scale(1.015); }
+  }
+
+  @keyframes splashPanelIn {
+    from { opacity: 0; transform: translateY(18px) scale(0.98); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+  }
+
+  @keyframes splashScan {
+    from { transform: skewX(-18deg) translateX(-160%); opacity: 0; }
+    22% { opacity: 1; }
+    to { transform: skewX(-18deg) translateX(330%); opacity: 0; }
+  }
+
+  @keyframes splashDotPulse {
+    0%, 100% { transform: scale(1); opacity: 0.85; }
+    50% { transform: scale(1.18); opacity: 1; }
+  }
+
+  @keyframes splashType {
+    from { max-width: 0; }
+    to { max-width: 32ch; }
+  }
+
+  @keyframes splashCursorBlink {
+    0%, 48% { opacity: 1; }
+    49%, 100% { opacity: 0.18; }
+  }
+
+  @keyframes splashCursorOut {
+    to { opacity: 0; transform: translateY(0.16em) scaleY(0.2); }
+  }
+
+  @keyframes splashLineIn {
+    from { opacity: 0; transform: translateY(5px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes splashOrbit {
+    to { stroke-dashoffset: 0; }
+  }
+
+  @keyframes splashLinkIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  @keyframes splashNode {
+    from { opacity: 0; transform: scale(0.2); }
+    to { opacity: 1; transform: scale(1); }
+  }
+
+  @keyframes splashPulseRing {
+    0% { opacity: 0; transform: scale(0.65); }
+    34% { opacity: 1; }
+    100% { opacity: 0; transform: scale(1.55); }
+  }
+
+  @keyframes splashProgress {
+    to { transform: translateX(0); }
+  }
+
+  @media (max-width: 640px) {
+    .splash-panel {
+      border-radius: 1.55rem;
+    }
+
+    .splash-body {
+      gap: 1rem;
+    }
+
+    .splash-map {
+      height: 8rem;
+      min-height: 8rem;
+    }
+
+    .splash-foot {
+      flex-direction: column;
+      gap: 0.35rem;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .splash-shell,
+    .splash-shell::before,
+    .splash-shell::after,
+    .splash-panel,
+    .splash-scan,
+    .splash-type,
+    .splash-line-3,
+    .splash-line-4,
+    .splash-cursor,
+    .splash-orbit,
+    .splash-link,
+    .splash-pulse-ring,
+    .splash-node,
+    .splash-progress span {
+      animation: none !important;
+    }
+
+    .splash-type {
+      max-width: 32ch;
+    }
+
+    .splash-line-3,
+    .splash-line-4,
+    .splash-link,
+    .splash-node {
+      opacity: 1;
+    }
+  }
+`;
 
 export default function SplashScreen() {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const overlayRef = useRef<HTMLDivElement>(null);
-  const [phase, setPhase] = useState<'init' | 'animate' | 'done'>('init');
+  const [phase, setPhase] = useState<SplashPhase>('animate');
 
   useEffect(() => {
-    if (sessionStorage.getItem('splash_played')) {
+    const prehideStyle = document.querySelector('style[data-hsy-splash-prehide="true"]');
+
+    if (sessionStorage.getItem(SPLASH_STORAGE_KEY)) {
       setPhase('done');
       return;
     }
 
-    setPhase('animate');
+    prehideStyle?.remove();
 
-    const canvas = canvasRef.current;
-    const overlay = overlayRef.current;
-    if (!canvas || !overlay) return;
-
-    const dpr = window.devicePixelRatio || 1;
-    const vw = window.innerWidth;
-    const vh = window.innerHeight;
-    const W = Math.round(vw * dpr);
-    const H = Math.round(vh * dpr);
-    canvas.width = W;
-    canvas.height = H;
-    const ctx = canvas.getContext('2d')!;
-
-    // ===== 颜色 =====
-    // 主粒子（汇聚成字的）：蓝紫色系
-    const MAIN_COLORS: [number, number, number][] = [
-      [147, 197, 253], // 淡蓝
-      [165, 180, 252], // 蓝紫
-      [196, 181, 253], // 淡紫
-      [186, 193, 252], // 蓝紫过渡
-    ];
-    // 背景粒子：低饱和度的柔和色彩
-    const BG_COLORS: [number, number, number][] = [
-      [186, 220, 248], // 雾蓝
-      [210, 195, 240], // 薰衣草
-      [248, 200, 210], // 玫瑰粉
-      [200, 230, 215], // 薄荷绿
-      [240, 215, 185], // 暖杏
-      [215, 210, 235], // 灰紫
-      [195, 225, 235], // 天青
-      [235, 200, 220], // 樱花
-    ];
-
-    // ===== 采样文字像素 =====
-    const FONT_SIZE = 36;
-    const canvasFontPx = FONT_SIZE * dpr;
-    const fontStr = `bold ${canvasFontPx}px Arial, Helvetica, sans-serif`;
-
-    const offscreen = document.createElement('canvas');
-    offscreen.width = W;
-    offscreen.height = H;
-    const offCtx = offscreen.getContext('2d')!;
-    offCtx.font = fontStr;
-    offCtx.textAlign = 'center';
-    offCtx.textBaseline = 'middle';
-    offCtx.fillStyle = '#000';
-    try { (offCtx as any).letterSpacing = `${canvasFontPx * 0.05}px`; } catch {}
-    offCtx.fillText('我的个人宇宙', W / 2, H / 2);
-
-    const imgData = offCtx.getImageData(0, 0, W, H).data;
-    const targets: { x: number; y: number }[] = [];
-    const sampleStep = Math.max(3, Math.round(canvasFontPx / 10));
-    for (let y = 0; y < H; y += sampleStep) {
-      for (let x = 0; x < W; x += sampleStep) {
-        if (imgData[(y * W + x) * 4 + 3] > 128) {
-          targets.push({ x, y });
-        }
-      }
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      sessionStorage.setItem(SPLASH_STORAGE_KEY, '1');
+      setPhase('done');
+      return;
     }
 
-    // ===== 主粒子：一开始就散布在屏幕上，后续飞去组字 =====
-    const MAIN_COUNT = Math.min(targets.length, 450);
-    const pStep = Math.max(1, Math.floor(targets.length / MAIN_COUNT));
+    const timer = window.setTimeout(() => {
+      sessionStorage.setItem(SPLASH_STORAGE_KEY, '1');
+      setPhase('done');
+    }, SPLASH_DURATION);
 
-    const mainParticles = Array.from({ length: MAIN_COUNT }, (_, i) => {
-      const t = targets[Math.min(i * pStep, targets.length - 1)];
-      return {
-        // 初始位置：随机散布在屏幕各处
-        sx: Math.random() * W,
-        sy: Math.random() * H,
-        // 目标位置：文字轮廓上的点
-        tx: t.x,
-        ty: t.y,
-        r: (Math.random() * 1.5 + 1) * dpr,
-        color: MAIN_COLORS[Math.floor(Math.random() * MAIN_COLORS.length)],
-        alpha: Math.random() * 0.3 + 0.55,
-        // 初始阶段的轻微漂浮速度
-        vx: (Math.random() - 0.5) * 0.4 * dpr,
-        vy: (Math.random() - 0.5) * 0.3 * dpr,
-      };
-    });
-
-    // ===== 背景粒子：始终自由飘浮，不参与汇聚 =====
-    const BG_COUNT = 550;
-    const bgParticles = Array.from({ length: BG_COUNT }, () => ({
-      x: Math.random() * W,
-      y: Math.random() * H,
-      vx: (Math.random() - 0.5) * 0.5 * dpr,
-      vy: (Math.random() - 0.5) * 0.4 * dpr,
-      r: (Math.random() * 1.5 + 1) * dpr,
-      color: BG_COLORS[Math.floor(Math.random() * BG_COLORS.length)],
-      alpha: Math.random() * 0.38 + 0.22,
-    }));
-
-    // ===== 测量 header 标题位置 =====
-    const headerEl = document.getElementById('header-title');
-    let targetCSSY = vh * 0.22;
-    if (headerEl) {
-      const rect = headerEl.getBoundingClientRect();
-      targetCSSY = rect.top + rect.height / 2;
-    }
-    const canvasOffsetY = (targetCSSY - vh / 2) * dpr;
-
-    const domTitle = document.getElementById('splash-title');
-    const domSub = document.getElementById('splash-sub');
-
-    // ===== 时间轴 =====
-    const T_DRIFT    = 400;  // 0→400ms：所有粒子自由飘浮，营造初始氛围
-    const T_CONVERGE = 1600; // 400→1600ms：主粒子开始汇聚成字
-    const T_HOLD     = 2100; // 1600→2100ms：停留
-    const T_MOVE     = 2900; // 2100→2900ms：文字上移 + 交叉淡入
-    const T_FADE     = 3300; // 2900→3300ms：遮罩淡出
-
-    function easeInOutCubic(t: number) {
-      return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
-    }
-
-    let startTime = 0;
-    let frameId = 0;
-    const ov = overlay;
-
-    function render(timestamp: number) {
-      if (!startTime) startTime = timestamp;
-      const elapsed = timestamp - startTime;
-
-      ctx.clearRect(0, 0, W, H);
-
-      // ===== 汇聚进度（T_DRIFT 之后才开始） =====
-      let converge = 0;
-      if (elapsed > T_DRIFT && elapsed < T_CONVERGE) {
-        converge = easeInOutCubic((elapsed - T_DRIFT) / (T_CONVERGE - T_DRIFT));
-      } else if (elapsed >= T_CONVERGE) {
-        converge = 1;
-      }
-
-      // ===== 上移进度 =====
-      let moveP = 0;
-      if (elapsed > T_HOLD && elapsed < T_MOVE) {
-        moveP = easeInOutCubic((elapsed - T_HOLD) / (T_MOVE - T_HOLD));
-      } else if (elapsed >= T_MOVE) {
-        moveP = 1;
-      }
-
-      const particleFade = 1 - moveP;
-      const currentOffsetY = canvasOffsetY * moveP;
-
-      // ===== 遮罩淡出系数 =====
-      const fadeFactor = elapsed > T_MOVE
-        ? Math.max(0, 1 - (elapsed - T_MOVE) / (T_FADE - T_MOVE))
-        : 1;
-
-      // ===== 绘制背景粒子 =====
-      bgParticles.forEach(p => {
-        p.x += p.vx;
-        p.y += p.vy;
-        if (p.x < 0 || p.x > W) p.vx *= -1;
-        if (p.y < 0 || p.y > H) p.vy *= -1;
-        const [cr, cg, cb] = p.color;
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(${cr},${cg},${cb},${p.alpha * fadeFactor})`;
-        ctx.fill();
-      });
-
-      // ===== 绘制主粒子 =====
-      mainParticles.forEach(p => {
-        // 汇聚前：在初始位置附近轻微漂浮
-        // 汇聚中/后：从初始位置飞向目标位置
-        let px: number, py: number;
-
-        if (elapsed <= T_DRIFT) {
-          // 自由漂浮阶段
-          p.sx += p.vx;
-          p.sy += p.vy;
-          if (p.sx < 0 || p.sx > W) p.vx *= -1;
-          if (p.sy < 0 || p.sy > H) p.vy *= -1;
-          px = p.sx;
-          py = p.sy;
-        } else {
-          // 汇聚阶段：从当前位置插值到目标
-          px = p.sx + (p.tx - p.sx) * converge;
-          py = p.sy + (p.ty - p.sy) * converge + currentOffsetY;
-        }
-
-        const [cr, cg, cb] = p.color;
-        ctx.beginPath();
-        ctx.arc(px, py, p.r, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(${cr},${cg},${cb},${p.alpha * particleFade * fadeFactor})`;
-        ctx.fill();
-      });
-
-      // ===== 同步 DOM 标题 =====
-      if (domTitle) {
-        const startPct = 50;
-        const endPct = (targetCSSY / vh) * 100;
-        const currentPct = startPct + (endPct - startPct) * moveP;
-        domTitle.style.top = `${currentPct}%`;
-        domTitle.style.opacity = `${moveP}`;
-      }
-
-      // ===== 副标题延迟淡入 =====
-      if (domSub) {
-        const subDelay = 0.3;
-        const subP = Math.max(0, Math.min(1, (moveP - subDelay) / (1 - subDelay)));
-        const startPct = 50;
-        const endPct = (targetCSSY / vh) * 100;
-        const titlePct = startPct + (endPct - startPct) * moveP;
-        domSub.style.top = `${titlePct + (36 / vh) * 100}%`;
-        domSub.style.opacity = `${subP}`;
-      }
-
-      // ===== 遮罩淡出 =====
-      if (elapsed > T_MOVE && elapsed < T_FADE) {
-        ov.style.opacity = `${fadeFactor}`;
-      } else if (elapsed >= T_FADE) {
-        ov.style.opacity = '0';
-        cancelAnimationFrame(frameId);
-        sessionStorage.setItem('splash_played', '1');
-        setTimeout(() => setPhase('done'), 50);
-        return;
-      }
-
-      frameId = requestAnimationFrame(render);
-    }
-
-    const delay = setTimeout(() => {
-      frameId = requestAnimationFrame(render);
-    }, 50);
-
-    return () => {
-      clearTimeout(delay);
-      cancelAnimationFrame(frameId);
-    };
+    return () => window.clearTimeout(timer);
   }, []);
 
   if (phase === 'done') return null;
 
   return (
-    <div
-      ref={overlayRef}
-      style={{
-        position: 'fixed',
-        inset: 0,
-        zIndex: 9999,
-        background: 'linear-gradient(to right, #dbeafe, #f3e8ff)',
-      }}
-    >
-      <canvas
-        ref={canvasRef}
-        style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}
-      />
+    <>
+      <script dangerouslySetInnerHTML={{ __html: PRECHECK_SCRIPT }} />
+      <style dangerouslySetInnerHTML={{ __html: SPLASH_STYLE }} />
 
-      <div
-        id="splash-title"
-        style={{
-          position: 'absolute',
-          left: '50%',
-          top: '50%',
-          transform: 'translate(-50%, -50%)',
-          fontSize: '36px',
-          fontWeight: 'bold',
-          color: '#1f2937',
-          letterSpacing: '0.05em',
-          opacity: 0,
-          whiteSpace: 'nowrap',
-          pointerEvents: 'none',
-        }}
-      >
-        我的个人宇宙
-      </div>
+      <div id="hsy-splash-root" className="splash-shell" aria-label="正在接入个人宇宙观测站">
+        <div className="splash-noise" aria-hidden="true" />
 
-      <div
-        id="splash-sub"
-        style={{
-          position: 'absolute',
-          left: '50%',
-          top: '55%',
-          transform: 'translate(-50%, -50%)',
-          fontSize: '16px',
-          color: '#4b5563',
-          opacity: 0,
-          whiteSpace: 'nowrap',
-          pointerEvents: 'none',
-        }}
-      >
-        生活、学习与碎碎念
+        <div className="splash-center">
+          <div className="splash-panel">
+            <div className="splash-scan" aria-hidden="true" />
+
+            <div className="splash-inner">
+              <div className="splash-top">
+                <div className="splash-status">
+                  <span className="splash-dot" />
+                  Signal Handshake
+                </div>
+                <div className="splash-version">v2.3</div>
+              </div>
+
+              <div className="splash-body">
+                <div className="splash-terminal">
+                  <span className="splash-line splash-line-1">
+                    <span className="splash-prefix">&gt; </span>
+                    <span className="splash-type">PERSONAL OBSERVATORY</span>
+                  </span>
+
+                  <span className="splash-line splash-line-2">
+                    <span className="splash-prefix">&gt; </span>
+                    <span className="splash-type">CONNECTING TO HSY UNIVERSE</span>
+                    <span className="splash-cursor" />
+                  </span>
+
+                  <span className="splash-line splash-line-3">
+                    <span className="splash-prefix">✓ </span>
+                    <span className="splash-type">SIGNAL ACQUIRED</span>
+                  </span>
+
+                  <span className="splash-line splash-line-4">
+                    <span className="splash-prefix">✓ </span>
+                    <span className="splash-type">ORBIT STABILIZED</span>
+                  </span>
+                </div>
+
+                <div className="splash-map" aria-hidden="true">
+                  <svg viewBox="0 0 220 160" role="presentation">
+                    <ellipse className="splash-orbit" cx="110" cy="80" rx="70" ry="42" />
+                    <ellipse className="splash-orbit" cx="110" cy="80" rx="42" ry="25" />
+
+                    <circle className="splash-node" cx="67" cy="82" r="3.2" />
+                    <circle className="splash-node" cx="91" cy="58" r="2.8" />
+                    <circle className="splash-node splash-node-core" cx="123" cy="55" r="3.4" />
+                    <circle className="splash-node" cx="153" cy="78" r="2.9" />
+                    <circle className="splash-node" cx="140" cy="104" r="3.1" />
+                    <circle className="splash-node" cx="84" cy="108" r="2.8" />
+
+                    <line className="splash-link" x1="67" y1="82" x2="91" y2="58" />
+                    <line className="splash-link" x1="91" y1="58" x2="123" y2="55" />
+                    <line className="splash-link" x1="123" y1="55" x2="153" y2="78" />
+                    <line className="splash-link" x1="153" y1="78" x2="140" y2="104" />
+                    <line className="splash-link" x1="140" y1="104" x2="84" y2="108" />
+                    <line className="splash-link" x1="84" y1="108" x2="67" y2="82" />
+                    <line className="splash-link" x1="84" y1="108" x2="123" y2="55" />
+
+                    <circle className="splash-pulse-ring" cx="123" cy="55" r="12" />
+                  </svg>
+                </div>
+              </div>
+
+              <div className="splash-progress" aria-hidden="true">
+                <span />
+              </div>
+
+              <div className="splash-foot">
+                <span>diary / timeline / moments / signals</span>
+                <span>orbit sync</span>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
-    </div>
+    </>
   );
 }
-
