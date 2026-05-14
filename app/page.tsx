@@ -102,12 +102,32 @@ const HOME_STYLE = `
     --home-purple: #a78bfa;
     --home-rose: #fb7185;
     --home-teal: #2dd4bf;
+    width: 100%;
+    max-width: 100vw;
+    overflow-x: clip;
     color: var(--home-text);
     background:
       radial-gradient(circle at 12% 10%, rgba(90, 167, 255, 0.18), transparent 32%),
       radial-gradient(circle at 88% 8%, rgba(167, 139, 250, 0.14), transparent 30%),
       radial-gradient(circle at 50% 94%, rgba(45, 212, 191, 0.12), transparent 34%),
       linear-gradient(180deg, #fbfcff 0%, #f7f8fb 42%, #f4f6fb 100%);
+  }
+
+  @supports not (overflow: clip) {
+    .home-shell {
+      overflow-x: hidden;
+    }
+  }
+
+  .home-shell :where(header, main, footer, section, div, article, aside, a) {
+    min-width: 0;
+  }
+
+  .section-title {
+    overflow-wrap: anywhere;
+    word-break: break-word;
+    line-break: anywhere;
+    text-wrap: balance;
   }
 
   .home-shell {
@@ -505,21 +525,27 @@ const HOME_STYLE = `
 
   @media (max-width: 768px) {
     .section-shell {
-      padding: 4.25rem 0;
+      padding: 3.75rem 1rem;
     }
 
     .mobile-snap {
       display: flex;
+      width: calc(100% + 2rem);
+      max-width: calc(100% + 2rem);
       overflow-x: auto;
       gap: 1rem;
-      padding: 0.25rem 1.25rem 1rem;
-      margin-left: -1.25rem;
-      margin-right: -1.25rem;
+      padding: 0.25rem 1rem 1rem;
+      margin-left: -1rem;
+      margin-right: -1rem;
       scroll-snap-type: x mandatory;
+      scroll-padding-inline: 1rem;
+      overscroll-behavior-x: contain;
+      -webkit-overflow-scrolling: touch;
     }
 
     .mobile-snap > * {
-      min-width: 82%;
+      flex: 0 0 min(82vw, 22rem);
+      min-width: 0;
       scroll-snap-align: start;
     }
 
@@ -534,14 +560,22 @@ const HOME_STYLE = `
 
     .memory-grid {
       display: flex;
+      width: calc(100% + 2rem);
+      max-width: calc(100% + 2rem);
       overflow-x: auto;
       gap: 1rem;
-      padding-bottom: 1rem;
+      padding: 0 1rem 1rem;
+      margin-left: -1rem;
+      margin-right: -1rem;
       scroll-snap-type: x mandatory;
+      scroll-padding-inline: 1rem;
+      overscroll-behavior-x: contain;
+      -webkit-overflow-scrolling: touch;
     }
 
     .memory-card {
-      min-width: 82%;
+      flex: 0 0 min(82vw, 22rem);
+      min-width: 0;
       height: 20rem;
       scroll-snap-align: start;
     }
@@ -672,7 +706,7 @@ export default async function Home() {
         : '#featured-stories';
 
   return (
-    <div className="home-shell min-h-screen font-sans text-gray-800">
+    <div className="home-shell min-h-screen max-w-full font-sans text-gray-800">
       <SplashScreen />
       <ScrollRestore />
 
@@ -728,7 +762,7 @@ export default async function Home() {
       <div className="cosmic-bg" aria-hidden="true" />
 
       <header className="relative z-10 overflow-hidden px-5 pb-20 pt-24 sm:px-8 lg:px-10">
-        <div className="mx-auto grid max-w-7xl items-center gap-10 lg:min-h-[72vh] lg:grid-cols-[1.08fr_0.92fr]">
+        <div className="mx-auto grid max-w-7xl min-w-0 max-w-full items-center gap-10 lg:min-h-[72vh] lg:grid-cols-[1.08fr_0.92fr]">
           <div className="soft-appear">
             <div className="mb-6 flex flex-wrap items-center gap-3">
               <span className="status-pill">
@@ -742,7 +776,7 @@ export default async function Home() {
 
             <h1
               id="header-title"
-              className="max-w-4xl text-5xl font-black leading-[1.03] tracking-tight text-slate-950 sm:text-6xl lg:text-7xl"
+              className="max-w-4xl break-words text-[clamp(2.6rem,13vw,4.5rem)] font-black leading-[1.03] tracking-tight text-slate-950 sm:text-6xl lg:text-7xl"
             >
               {profile.hero_title || '我的个人宇宙'}
             </h1>
@@ -840,7 +874,7 @@ export default async function Home() {
 
       <main className="relative z-10">
         <section className="section-shell scroll-float px-5 sm:px-8 lg:px-10">
-          <div className="mx-auto max-w-7xl">
+          <div className="mx-auto max-w-7xl min-w-0">
             <SectionHeader
               kicker="NOW / 今日观测"
               title="这个宇宙此刻正在发生什么"
@@ -872,7 +906,7 @@ export default async function Home() {
           id="featured-stories"
           className="section-shell scroll-float px-5 sm:px-8 lg:px-10"
         >
-          <div className="mx-auto max-w-7xl">
+          <div className="mx-auto max-w-7xl min-w-0">
             <SectionHeader
               kicker="Featured Stories / 精选随笔"
               title="最近的想法、故事和记录"
@@ -996,7 +1030,7 @@ export default async function Home() {
           id="orbit-log"
           className="section-shell scroll-float px-5 sm:px-8 lg:px-10"
         >
-          <div className="mx-auto max-w-7xl">
+          <div className="mx-auto max-w-7xl min-w-0">
             <SectionHeader
               kicker="Orbit Log / 时光轨迹"
               title="把重要节点连成轨道"
@@ -1095,7 +1129,7 @@ export default async function Home() {
           id="memory-constellation"
           className="section-shell scroll-float px-5 sm:px-8 lg:px-10"
         >
-          <div className="mx-auto max-w-7xl">
+          <div className="mx-auto max-w-7xl min-w-0">
             <SectionHeader
               kicker="Memory Constellation / 瞬间"
               title="散落的记忆星图"
@@ -1187,7 +1221,7 @@ export default async function Home() {
           id="signal-station"
           className="section-shell scroll-float px-5 pb-24 sm:px-8 lg:px-10"
         >
-          <div className="mx-auto max-w-7xl">
+          <div className="mx-auto max-w-7xl min-w-0">
             <SectionHeader
               kicker="Signal Station / 生活信号站"
               title="访客、留言与打卡"
@@ -1306,7 +1340,7 @@ function SectionHeader({
   return (
     <div className="max-w-3xl">
       <p className="section-kicker">{kicker}</p>
-      <h2 className="mt-4 text-3xl font-black tracking-tight text-slate-950 sm:text-5xl">
+      <h2 className="section-title mt-4 text-[clamp(1.9rem,7.5vw,3rem)] font-black leading-tight tracking-tight text-slate-950 sm:text-5xl">
         {title}
       </h2>
       <p className="mt-4 text-base leading-8 text-slate-600 sm:text-lg">

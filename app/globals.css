@@ -12,6 +12,39 @@
   --font-mono: var(--font-geist-mono);
 }
 
+/* ===== Mobile viewport / horizontal overflow guard ===== */
+html {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: clip;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: clip;
+}
+
+/* body is a flex container in layout.tsx; prevent children from forcing page width. */
+body > * {
+  min-width: 0;
+}
+
+img,
+video,
+canvas,
+svg {
+  max-width: 100%;
+}
+
+@supports not (overflow: clip) {
+  html,
+  body {
+    overflow-x: hidden;
+  }
+}
+
 @media (prefers-color-scheme: dark) {
   :root {
     --background: #0a0a0a;
@@ -24,6 +57,9 @@ body {
   color: var(--foreground);
   font-family: var(--font-geist-sans), "PingFang SC", "Hiragino Sans GB",
     "Microsoft YaHei", "Noto Sans SC", sans-serif;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: clip;
 }
 
 /* ===== Header 柔和光斑 ===== */

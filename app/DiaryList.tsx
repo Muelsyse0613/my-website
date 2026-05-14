@@ -177,7 +177,7 @@ function ArticleCard({ diary }: { diary: Diary }) {
       onMouseMove={handleMouseMove}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
-      className="group relative block overflow-hidden rounded-[2rem]"
+      className="group relative block min-w-0 max-w-full overflow-hidden rounded-[2rem]"
       style={{
         transition: 'all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.1)',
         transform: isHovered ? 'translateY(-10px)' : 'translateY(0)',
@@ -227,18 +227,18 @@ function ArticleCard({ diary }: { diary: Diary }) {
         }}
       />
 
-      <div className="relative z-10 p-5 sm:p-6 lg:p-7">
+      <div className="relative z-10 max-w-full p-5 sm:p-6 lg:p-7">
         <div
           className={
             hasCover
-              ? 'grid gap-5 md:grid-cols-[minmax(0,1fr)_12rem] md:items-center lg:grid-cols-[minmax(0,1fr)_14rem]'
-              : 'grid'
+              ? 'grid min-w-0 max-w-full gap-5 md:grid-cols-[minmax(0,1fr)_12rem] md:items-center lg:grid-cols-[minmax(0,1fr)_12rem] xl:grid-cols-[minmax(0,1fr)_14rem]'
+              : 'grid min-w-0 max-w-full'
           }
         >
           <div className="min-w-0">
-            <div className="mb-4 flex flex-wrap items-center gap-3">
+            <div className="mb-4 flex min-w-0 flex-wrap items-center gap-3">
               <h3
-                className="min-w-0 break-words text-2xl font-black leading-snug transition-colors duration-300 sm:text-3xl"
+                className="min-w-0 break-words text-[1.45rem] font-black leading-snug transition-colors duration-300 sm:text-3xl"
                 style={{ color: isHovered ? '#9333ea' : '#1e293b' }}
               >
                 {diary.title}
