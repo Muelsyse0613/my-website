@@ -701,6 +701,60 @@ export default async function Home() {
         </section>
 
         <section
+          id="lab"
+          className="section-shell scroll-float px-5 sm:px-8 lg:px-10"
+        >
+          <div className="mx-auto max-w-7xl min-w-0">
+            <SectionHeader
+              kicker="Lab / 实验室"
+              title="项目与实验"
+              description="一些有趣的技术探索与实验，目前只有五子棋，以后还会有更多。"
+            />
+
+            <div className="mt-8 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
+              <Link
+                href="/gomoku"
+                className="glass-panel ak-card group scroll-float-item relative overflow-hidden rounded-[2rem] p-6 transition-all duration-300 hover:-translate-y-1.5 hover:shadow-[0_24px_64px_rgba(109,40,217,0.12)]"
+              >
+                <span className="ak-corner ak-corner-tl" />
+                <span className="ak-corner ak-corner-br" />
+
+                <div className="panel-inner">
+                  <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-purple-100 to-blue-100 text-2xl ring-1 ring-purple-200/60">
+                    <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+                      <circle cx="14" cy="14" r="12" stroke="#7c3aed" strokeWidth="2.5" />
+                      <circle cx="14" cy="14" r="4" fill="#7c3aed" />
+                      <line x1="14" y1="2" x2="14" y2="10" stroke="#7c3aed" strokeWidth="2.5" strokeLinecap="round" />
+                      <line x1="14" y1="18" x2="14" y2="26" stroke="#7c3aed" strokeWidth="2.5" strokeLinecap="round" />
+                      <line x1="2" y1="14" x2="10" y2="14" stroke="#7c3aed" strokeWidth="2.5" strokeLinecap="round" />
+                      <line x1="18" y1="14" x2="26" y2="14" stroke="#7c3aed" strokeWidth="2.5" strokeLinecap="round" />
+                    </svg>
+                  </div>
+
+                  <div className="mb-3 flex flex-wrap gap-2">
+                    <span className="article-chip">C++ · WASM</span>
+                    <span className="article-chip">AI · 博弈</span>
+                  </div>
+
+                  <h3 className="text-2xl font-black text-slate-900 transition-colors group-hover:text-purple-700">
+                    五子棋 Gomoku
+                  </h3>
+
+                  <p className="mt-2 text-sm leading-7 text-slate-600">
+                    C++ 引擎驱动的五子棋 AI，四级难度 配备VCF 算杀、PVS 搜索、预判加速，打赢master模式凭截图领取蜜雪一杯
+                  </p>
+
+                  <div className="mt-5 inline-flex items-center gap-2 text-sm font-bold text-purple-600">
+                    开始对战
+                    <span className="transition-transform group-hover:translate-x-1">→</span>
+                  </div>
+                </div>
+              </Link>
+            </div>
+          </div>
+        </section>
+
+        <section
           id="signal-station"
           className="section-shell scroll-float px-5 pb-24 sm:px-8 lg:px-10"
         >

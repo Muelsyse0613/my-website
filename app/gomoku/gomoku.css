@@ -1,0 +1,171 @@
+.gomoku-shell {
+  min-height: 100vh;
+  color: #172033;
+  background:
+    radial-gradient(circle at 12% 8%, rgba(90, 167, 255, 0.16), transparent 30%),
+    radial-gradient(circle at 86% 12%, rgba(167, 139, 250, 0.15), transparent 30%),
+    radial-gradient(circle at 48% 92%, rgba(45, 212, 191, 0.10), transparent 32%),
+    linear-gradient(180deg, #fbfcff 0%, #f7f8fb 48%, #f4f6fb 100%);
+}
+
+.gomoku-cosmic-bg {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 0;
+}
+
+.gomoku-cosmic-bg::before {
+  content: "";
+  position: absolute;
+  inset: -24%;
+  background:
+    radial-gradient(circle at 22% 24%, rgba(90, 167, 255, 0.18), transparent 30%),
+    radial-gradient(circle at 78% 18%, rgba(167, 139, 250, 0.16), transparent 30%),
+    radial-gradient(circle at 42% 78%, rgba(251, 113, 133, 0.08), transparent 32%);
+  filter: blur(46px);
+  animation: gomokuNebula 28s ease-in-out infinite alternate;
+}
+
+.gomoku-cosmic-bg::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(23, 32, 51, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(23, 32, 51, 0.035) 1px, transparent 1px);
+  background-size: 44px 44px;
+  mask-image: radial-gradient(circle at center, black 0%, transparent 72%);
+  opacity: 0.62;
+}
+
+.gomoku-glass {
+  position: relative;
+  overflow: hidden;
+  border-radius: 1.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.72);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.86), rgba(255, 255, 255, 0.62));
+  box-shadow: 0 24px 80px rgba(31, 41, 55, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(22px);
+}
+
+.gomoku-glass::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background:
+    linear-gradient(90deg, rgba(90, 167, 255, 0.12), transparent 28%, transparent 72%, rgba(167, 139, 250, 0.10)),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.62), transparent 38%);
+  opacity: 0.72;
+}
+
+.gomoku-inner {
+  position: relative;
+  z-index: 1;
+}
+
+.gomoku-back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  border: 1px solid rgba(23, 32, 51, 0.08);
+  background: rgba(255, 255, 255, 0.68);
+  color: #64748b;
+  border-radius: 999px;
+  padding: 0.65rem 0.9rem;
+  font-size: 0.88rem;
+  font-weight: 800;
+  backdrop-filter: blur(16px);
+  transition: transform 180ms ease, color 180ms ease, box-shadow 180ms ease;
+}
+
+.gomoku-back-link:hover {
+  color: #6d28d9;
+  transform: translateY(-2px);
+  box-shadow: 0 16px 34px rgba(109, 40, 217, 0.10);
+}
+
+.gomoku-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border: 1px solid rgba(90, 167, 255, 0.22);
+  background: rgba(90, 167, 255, 0.08);
+  color: #386491;
+  border-radius: 999px;
+  padding: 0.38rem 0.72rem;
+  font-size: 0.76rem;
+  font-weight: 800;
+}
+
+.gomoku-board-wrapper {
+  border-radius: 1.25rem;
+  overflow: hidden;
+}
+
+.gomoku-canvas {
+  display: block;
+  border-radius: 1.25rem;
+  cursor: pointer;
+  transition: opacity 200ms ease;
+}
+
+.gomoku-canvas.gomoku-disabled {
+  cursor: not-allowed;
+  opacity: 0.75;
+}
+
+.gomoku-diff-btn {
+  border: 1px solid rgba(23, 32, 51, 0.06);
+}
+
+.gomoku-color-btn {
+  border: 1px solid rgba(23, 32, 51, 0.06);
+}
+
+.gomoku-action-btn {
+  border: 1px solid rgba(109, 40, 217, 0.14);
+  background: rgba(255, 255, 255, 0.72);
+  color: #6d28d9;
+  box-shadow: 0 12px 30px rgba(109, 40, 217, 0.08);
+  transition: transform 180ms ease, box-shadow 180ms ease, background 180ms ease;
+}
+
+.gomoku-action-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.94);
+  transform: translateY(-2px);
+  box-shadow: 0 18px 38px rgba(109, 40, 217, 0.14);
+}
+
+.gomoku-thinking-dot {
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 999px;
+  background: #5aa7ff;
+  animation: gomokuPulse 1.2s ease-in-out infinite;
+}
+
+@keyframes gomokuPulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.35; transform: scale(0.8); }
+}
+
+@keyframes gomokuNebula {
+  from { transform: translate3d(-2%, -1%, 0) scale(1); }
+  to   { transform: translate3d(2%, 1%, 0) scale(1.06); }
+}
+
+@media (max-width: 1023px) {
+  .gomoku-canvas {
+    /* canvas scales via CSS width */
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gomoku-cosmic-bg::before { animation: none; }
+  .gomoku-back-link:hover { transform: none; }
+  .gomoku-action-btn:hover:not(:disabled) { transform: none; }
+}
