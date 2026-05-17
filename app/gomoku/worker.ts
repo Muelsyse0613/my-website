@@ -15,13 +15,39 @@ type MainMessage =
 
 let Module: any = null;
 
-// ── Ponder state ──
+// ── Dynamic depth ──
 const DIFFICULTY_CONFIG: Record<string, [number, number, number]> = {
   easy:   [3,  4,  4],
   medium: [6,  6,  6],
   hard:   [10, 10, 8],
   master: [12, 14, 12],
 };
+
+function countStones(board: Int32Array): number {
+  let n = 0;
+  for (let i = 0; i < board.length; i++) {
+    if (board[i] !== EMPTY) n++;
+  }
+  return n;
+}
+
+function getEffectiveConfig(difficulty: string, stones: number): [number, number, number] {
+  const [base, vcfSelf, vcfOpp] = DIFFICULTY_CONFIG[difficulty];
+  if (difficulty === 'easy' || difficulty === 'medium') return [base, vcfSelf, vcfOpp];
+
+  let depth = base;
+  if (difficulty === 'hard') {
+    if (stones <= 4)       depth = 6;
+    else if (stones <= 8)  depth = 8;
+    else                   depth = 10;
+  } else if (difficulty === 'master') {
+    if (stones <= 2)       depth = 6;
+    else if (stones <= 6)  depth = 8;
+    else if (stones <= 8)  depth = 10;
+    else                   depth = 12;
+  }
+  return [depth, vcfSelf, vcfOpp];
+}
 
 interface PonderEntry {
   aiRow: number;
@@ -31,6 +57,7 @@ interface PonderEntry {
 let ponderCache = new Map<string, PonderEntry>();
 let ponderCancelled = false;
 let isPondering = false;
+let ponderGen = 0;
 
 function cancelPonder(): void {
   ponderCancelled = true;
@@ -71,9 +98,10 @@ function startPonder(
   isPondering = true;
   ponderCancelled = false;
   ponderCache.clear();
+  const gen = ++ponderGen;
 
-  const [depth, vcfSelf, vcfOpp] = DIFFICULTY_CONFIG[difficulty];
-  ponderStep(0, topN, board, aiPlayer, humanPlayer, depth, vcfSelf, vcfOpp);
+  const [depth, vcfSelf, vcfOpp] = getEffectiveConfig(difficulty, countStones(board));
+  ponderStep(0, topN, board, aiPlayer, humanPlayer, gen, depth, vcfSelf, vcfOpp);
 }
 
 function ponderStep(
@@ -82,11 +110,12 @@ function ponderStep(
   board: Int32Array,
   aiPlayer: 1 | 2,
   humanPlayer: 1 | 2,
+  gen: number,
   depth: number,
   vcfSelf: number,
   vcfOpp: number
 ): void {
-  if (ponderCancelled || index >= candidates.length) {
+  if (ponderCancelled || gen !== ponderGen || index >= candidates.length) {
     isPondering = false;
     return;
   }
@@ -118,7 +147,7 @@ function ponderStep(
 
   // Yield to message queue so find_move can interrupt between steps
   setTimeout(
-    () => ponderStep(index + 1, candidates, board, aiPlayer, humanPlayer, depth, vcfSelf, vcfOpp),
+    () => ponderStep(index + 1, candidates, board, aiPlayer, humanPlayer, gen, depth, vcfSelf, vcfOpp),
     0
   );
 }
@@ -153,6 +182,7 @@ self.onmessage = async (e: MessageEvent<MainMessage>) => {
     Module._clear_tt();
     cancelPonder();
     ponderCache.clear();
+    ponderGen++;
     return;
   }
 
@@ -163,14 +193,20 @@ self.onmessage = async (e: MessageEvent<MainMessage>) => {
     if (lastMove && ponderCache.has(cacheKey(lastMove.row, lastMove.col))) {
       cancelPonder();
       const entry = ponderCache.get(cacheKey(lastMove.row, lastMove.col))!;
-      (self as unknown as Worker).postMessage({
-        type: 'move',
-        row: entry.aiRow,
-        col: entry.aiCol,
-        nodes: 0,
-        qnodes: 0,
-      } satisfies WorkerMessage);
-      return;
+      // Validate cached move is still empty on the current board.
+      // Stale entries can survive from a previous pondering session if
+      // the previous turn was also a cache hit (no new pondering started).
+      if (board[entry.aiRow * BOARD_SIZE + entry.aiCol] === EMPTY) {
+        (self as unknown as Worker).postMessage({
+          type: 'move',
+          row: entry.aiRow,
+          col: entry.aiCol,
+          nodes: 0,
+          qnodes: 0,
+        } satisfies WorkerMessage);
+        return;
+      }
+      ponderCache.delete(cacheKey(lastMove.row, lastMove.col));
     }
 
     // Cache miss — cancel in-flight ponder and do normal search
@@ -181,11 +217,38 @@ self.onmessage = async (e: MessageEvent<MainMessage>) => {
     const resultPtr = Module._malloc(8);
 
     try {
-      const [depth, vcfSelf, vcfOpp] = DIFFICULTY_CONFIG[difficulty];
-      Module._find_best_move_fixed_depth(boardPtr, player, depth, vcfSelf, vcfOpp, resultPtr);
+      const doSearch = () => {
+        const [depth, vcfSelf, vcfOpp] = getEffectiveConfig(difficulty, countStones(board));
+        Module._find_best_move_fixed_depth(boardPtr, player, depth, vcfSelf, vcfOpp, resultPtr);
+        const r = Module.HEAP32[resultPtr >> 2];
+        const c = Module.HEAP32[(resultPtr >> 2) + 1];
+        return { row: r, col: c };
+      };
 
-      const aiRow = Module.HEAP32[resultPtr >> 2];
-      const aiCol = Module.HEAP32[(resultPtr >> 2) + 1];
+      let { row: aiRow, col: aiCol } = doSearch();
+
+      // Validate: if engine returned an occupied cell, dump diagnostics and retry
+      if (aiRow >= 0 && aiCol >= 0 && board[aiRow * BOARD_SIZE + aiCol] !== EMPTY) {
+        // Read back board from WASM heap to verify data integrity
+        let wasmStones = 0;
+        for (let i = 0; i < 225; i++) {
+          if (Module.HEAP32[(boardPtr >> 2) + i] !== 0) wasmStones++;
+        }
+        const jsStones = countStones(board);
+        console.error('[AI Worker] INVALID MOVE:', {
+          aiReturned: `(${aiRow},${aiCol})`,
+          jsStones,
+          wasmStones,
+          lastMove: lastMove ? `(${lastMove.row},${lastMove.col})` : 'none',
+          cellInJSBoard: board[aiRow * 15 + aiCol],
+          cellInWasm: Module.HEAP32[(boardPtr >> 2) + aiRow * 15 + aiCol],
+        });
+
+        Module._clear_tt();
+        const retry = doSearch();
+        aiRow = retry.row;
+        aiCol = retry.col;
+      }
 
       (self as unknown as Worker).postMessage({
         type: 'move',

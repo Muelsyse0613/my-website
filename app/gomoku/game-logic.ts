@@ -166,6 +166,21 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
     case 'AI_MOVE': {
       const { row, col } = action;
       if (row === undefined || col === undefined) return { ...state, isAIThinking: false };
+      if (!isValidMove(state.board, row, col)) {
+        console.error('[Reducer] AI返回被占位置:', {
+          row, col,
+          cellValue: state.board[row][col],
+          occupiedBy: state.board[row][col] === state.humanPlayer ? '你' : 'AI',
+          moveCount: state.moveHistory.length,
+          lastMove: state.moveHistory.length > 0 ? state.moveHistory[state.moveHistory.length - 1] : null,
+        });
+        return {
+          ...state,
+          isAIThinking: false,
+          currentPlayer: state.humanPlayer,
+          statusMessage: 'AI 出错，请重试',
+        };
+      }
 
       const newBoard = makeMove(state.board, row, col, state.aiPlayer);
       const winLine = checkWin(newBoard, row, col);
