@@ -140,7 +140,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
           winner: state.humanPlayer,
           winLine,
           moveHistory: newHistory,
-          statusMessage: '你赢了！',
+          statusMessage: '哼，侥幸而已！',
         };
       }
 
@@ -150,7 +150,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
           board: newBoard,
           gameOver: true,
           moveHistory: newHistory,
-          statusMessage: '平局',
+          statusMessage: '硬拖到平局，这就是你的本事吗？！',
         };
       }
 
@@ -167,13 +167,6 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
       const { row, col } = action;
       if (row === undefined || col === undefined) return { ...state, isAIThinking: false };
       if (!isValidMove(state.board, row, col)) {
-        console.error('[Reducer] AI返回被占位置:', {
-          row, col,
-          cellValue: state.board[row][col],
-          occupiedBy: state.board[row][col] === state.humanPlayer ? '你' : 'AI',
-          moveCount: state.moveHistory.length,
-          lastMove: state.moveHistory.length > 0 ? state.moveHistory[state.moveHistory.length - 1] : null,
-        });
         return {
           ...state,
           isAIThinking: false,
@@ -196,7 +189,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
           winLine,
           moveHistory: newHistory,
           isAIThinking: false,
-          statusMessage: 'AI 赢了',
+          statusMessage: '被打败了吧？杂鱼~杂鱼~ ♡',
         };
       }
 

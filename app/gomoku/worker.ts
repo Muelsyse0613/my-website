@@ -37,13 +37,14 @@ function getEffectiveConfig(difficulty: string, stones: number): [number, number
 
   let depth = base;
   if (difficulty === 'hard') {
-    if (stones <= 4)       depth = 6;
-    else if (stones <= 8)  depth = 8;
+    if (stones <= 2)       depth = 7;
+    else if (stones <= 4)  depth = 8;
+    else if (stones <= 6)  depth = 9;
     else                   depth = 10;
   } else if (difficulty === 'master') {
-    if (stones <= 2)       depth = 6;
-    else if (stones <= 6)  depth = 8;
-    else if (stones <= 8)  depth = 10;
+    if (stones <= 1)       depth = 8;
+    else if (stones <= 3)  depth = 9;
+    else if (stones <= 5)  depth = 10;
     else                   depth = 12;
   }
   return [depth, vcfSelf, vcfOpp];
@@ -193,9 +194,9 @@ self.onmessage = async (e: MessageEvent<MainMessage>) => {
     if (lastMove && ponderCache.has(cacheKey(lastMove.row, lastMove.col))) {
       cancelPonder();
       const entry = ponderCache.get(cacheKey(lastMove.row, lastMove.col))!;
-      // Validate cached move is still empty on the current board.
-      // Stale entries can survive from a previous pondering session if
-      // the previous turn was also a cache hit (no new pondering started).
+      // All remaining cache entries are for the previous board state.
+      // Clear them so stale entries can't regress subsequent turns.
+      ponderCache.clear();
       if (board[entry.aiRow * BOARD_SIZE + entry.aiCol] === EMPTY) {
         (self as unknown as Worker).postMessage({
           type: 'move',
@@ -204,9 +205,13 @@ self.onmessage = async (e: MessageEvent<MainMessage>) => {
           nodes: 0,
           qnodes: 0,
         } satisfies WorkerMessage);
+        // Schedule pondering for the next turn (the cache-miss path does
+        // this after search; we must do it here since we skip the search).
+        const postAIBoard = new Int32Array(board);
+        postAIBoard[entry.aiRow * BOARD_SIZE + entry.aiCol] = player;
+        setTimeout(() => startPonder(postAIBoard, player, difficulty), 0);
         return;
       }
-      ponderCache.delete(cacheKey(lastMove.row, lastMove.col));
     }
 
     // Cache miss — cancel in-flight ponder and do normal search
@@ -227,23 +232,8 @@ self.onmessage = async (e: MessageEvent<MainMessage>) => {
 
       let { row: aiRow, col: aiCol } = doSearch();
 
-      // Validate: if engine returned an occupied cell, dump diagnostics and retry
+      // Defense: if engine returned an occupied cell, clear TT and retry once
       if (aiRow >= 0 && aiCol >= 0 && board[aiRow * BOARD_SIZE + aiCol] !== EMPTY) {
-        // Read back board from WASM heap to verify data integrity
-        let wasmStones = 0;
-        for (let i = 0; i < 225; i++) {
-          if (Module.HEAP32[(boardPtr >> 2) + i] !== 0) wasmStones++;
-        }
-        const jsStones = countStones(board);
-        console.error('[AI Worker] INVALID MOVE:', {
-          aiReturned: `(${aiRow},${aiCol})`,
-          jsStones,
-          wasmStones,
-          lastMove: lastMove ? `(${lastMove.row},${lastMove.col})` : 'none',
-          cellInJSBoard: board[aiRow * 15 + aiCol],
-          cellInWasm: Module.HEAP32[(boardPtr >> 2) + aiRow * 15 + aiCol],
-        });
-
         Module._clear_tt();
         const retry = doSearch();
         aiRow = retry.row;

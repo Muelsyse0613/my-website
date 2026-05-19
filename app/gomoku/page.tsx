@@ -92,14 +92,6 @@ export default function GomokuPage() {
           : undefined;
         const result = await aiBridge.findBestMove(board, state.aiPlayer, state.difficulty, lastMove);
         if (!cancelled && result.row >= 0 && result.col >= 0) {
-          // Diagnostic: verify the cell is still empty before dispatch
-          if (state.board[result.row]?.[result.col] !== 0) {
-            console.error('[Dispatch] 即将落子但位置已被占:', {
-              aiRow: result.row, aiCol: result.col,
-              cellValue: state.board[result.row]?.[result.col],
-              moveCount: state.moveHistory.length,
-            });
-          }
           dispatch({ type: 'AI_MOVE', row: result.row, col: result.col });
         } else if (!cancelled) {
           dispatch({ type: 'AI_CANCELLED' });
