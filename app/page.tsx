@@ -708,7 +708,7 @@ export default async function Home() {
             <SectionHeader
               kicker="Lab / 实验室"
               title="项目与实验"
-              description="一些有趣的技术探索与实验，目前只有五子棋，以后还会有更多。"
+              description="一些有趣的技术探索与实验。"
             />
 
             <div className="mt-8 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
@@ -746,6 +746,41 @@ export default async function Home() {
 
                   <div className="mt-5 inline-flex items-center gap-2 text-sm font-bold text-purple-600">
                     开始对战
+                    <span className="transition-transform group-hover:translate-x-1">→</span>
+                  </div>
+                </div>
+              </Link>
+
+              <Link
+                href="/auto-chess"
+                className="glass-panel ak-card group scroll-float-item relative overflow-hidden rounded-[2rem] p-6 transition-all duration-300 hover:-translate-y-1.5 hover:shadow-[0_24px_64px_rgba(109,40,217,0.12)]"
+              >
+                <span className="ak-corner ak-corner-tl" />
+                <span className="ak-corner ak-corner-br" />
+
+                <div className="panel-inner">
+                  <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-100 to-orange-100 text-2xl ring-1 ring-orange-200/60">
+                    <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+                      <polygon points="14,3 24,9 24,19 14,25 4,19 4,9" stroke="#d97706" strokeWidth="2" fill="rgba(217,119,6,0.1)" />
+                      <polygon points="14,9 19,12 19,17 14,20 9,17 9,12" stroke="#d97706" strokeWidth="1.5" fill="rgba(217,119,6,0.25)" />
+                    </svg>
+                  </div>
+
+                  <div className="mb-3 flex flex-wrap gap-2">
+                    <span className="article-chip">TypeScript</span>
+                    <span className="article-chip">Canvas · 策略</span>
+                  </div>
+
+                  <h3 className="text-2xl font-black text-slate-900 transition-colors group-hover:text-orange-700">
+                    自走棋 Auto Chess
+                  </h3>
+
+                  <p className="mt-2 text-sm leading-7 text-slate-600">
+                    10名英雄、5种羁绊、3种技能的自走棋游戏。拖拽布阵、装备合成、自动战斗，挑战3波敌人获得胜利
+                  </p>
+
+                  <div className="mt-5 inline-flex items-center gap-2 text-sm font-bold text-orange-600">
+                    开始游戏
                     <span className="transition-transform group-hover:translate-x-1">→</span>
                   </div>
                 </div>
