@@ -248,6 +248,8 @@ export interface GameState {
   statusMessage: string;
   // Combat tick accumulator (tracks partial frame time)
   combatTickAcc: number;
+  // Whether END_BATTLE has processed the settlement (gold/HP/gameOver)
+  settlementResolved: boolean;
 }
 
 // ===== Game Actions =====

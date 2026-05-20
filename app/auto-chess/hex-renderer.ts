@@ -82,34 +82,39 @@ export function updateLayout(displayWidth: number, displayHeight: number): void 
   canvasH = displayHeight;
 
   const isMobile = displayWidth < 700;
-  const benchX = isMobile ? 8 : 10;
 
   // Compute board dimensions in world space
   const boardWorldW = BOARD_COLS * HEX_COL_SPACING + HEX_RADIUS;
   const boardWorldH = BOARD_ROWS * HEX_ROW_SPACING + HEX_RADIUS;
 
   if (isMobile) {
-    // Stacked layout: bench on top, board below, shop on bottom
-    const benchH = BENCH_SLOTS * 56 + 16;
-    benchOriginX = 8;
-    benchOriginY = 8;
+    // Mobile layout: keep bench horizontal on top and give the board the rest
+    // of the canvas. Shop/equipment controls are rendered by React below the
+    // canvas on small screens, so the playable board no longer gets squeezed.
+    const { slotSize } = getBenchMetrics();
+    const sidePadding = 8;
+    const benchBottom = sidePadding + slotSize + 22;
+    const boardAreaY = benchBottom;
+    const boardAreaW = displayWidth - sidePadding * 2;
+    const boardAreaH = displayHeight - boardAreaY - sidePadding;
 
-    const boardAreaY = benchH + 16;
-    const boardAreaH = displayHeight - boardAreaY - 140;
-    const boardAreaW = displayWidth - 16;
+    benchOriginX = sidePadding;
+    benchOriginY = sidePadding;
 
     const scaleX = boardAreaW / boardWorldW;
     const scaleY = boardAreaH / boardWorldH;
     layoutScale = Math.min(scaleX, scaleY, 1.0);
 
     const scaledW = boardWorldW * layoutScale;
-    boardOriginX = (displayWidth - scaledW) / 2;
-    boardOriginY = boardAreaY + (boardAreaH - boardWorldH * layoutScale) / 2;
+    const scaledH = boardWorldH * layoutScale;
+    boardOriginX = sidePadding + (boardAreaW - scaledW) / 2;
+    boardOriginY = boardAreaY + (boardAreaH - scaledH) / 2;
 
-    shopOriginX = 8;
-    shopOriginY = displayHeight - 130;
-    equipOriginX = 8;
-    equipOriginY = displayHeight - 60;
+    // Kept for coordinate helpers; mobile shop/equipment canvas hit targets are disabled.
+    shopOriginX = displayWidth;
+    shopOriginY = displayHeight;
+    equipOriginX = displayWidth;
+    equipOriginY = displayHeight;
   } else {
     // Desktop layout: bench left, board center, shop right
     const benchW = 90;
@@ -146,6 +151,16 @@ function hexCenterToCanvas(row: number, col: number): { x: number; y: number } {
 
 function getScaledHexRadius(): number {
   return HEX_RADIUS * layoutScale;
+}
+
+function getBenchMetrics(): { slotSize: number; gap: number } {
+  if (canvasW < 700) {
+    const gap = 6;
+    const available = Math.max(0, canvasW - 16 - (BENCH_SLOTS - 1) * gap);
+    const slotSize = Math.max(34, Math.min(44, available / BENCH_SLOTS));
+    return { slotSize, gap };
+  }
+  return { slotSize: 52, gap: 14 };
 }
 
 // ===== Main Render =====
@@ -305,8 +320,7 @@ function drawUnitOnHex(
 // ===== Bench Slots =====
 function drawBenchSlots(ctx: CanvasRenderingContext2D, state: GameState): void {
   const isMobile = canvasW < 700;
-  const slotSize = isMobile ? 44 : 52;
-  const gap = isMobile ? 8 : 14;
+  const { slotSize, gap } = getBenchMetrics();
 
   for (let i = 0; i < BENCH_SLOTS; i++) {
     const x = isMobile ? (benchOriginX + i * (slotSize + gap) + slotSize / 2) : (benchOriginX + slotSize / 2);
@@ -371,6 +385,7 @@ function drawBenchSlots(ctx: CanvasRenderingContext2D, state: GameState): void {
 
 // ===== Equipment Inventory =====
 function drawEquipmentInventory(ctx: CanvasRenderingContext2D, state: GameState): void {
+  if (canvasW < 700) return;
   const x = equipOriginX;
   const y = equipOriginY;
   ctx.fillStyle = 'rgba(255,255,255,0.6)';
@@ -402,7 +417,7 @@ function drawEquipmentInventory(ctx: CanvasRenderingContext2D, state: GameState)
 
 // ===== Shop =====
 function drawShop(ctx: CanvasRenderingContext2D, state: GameState): void {
-  if (state.phase !== GamePhase.Preparation) return;
+  if (state.phase !== GamePhase.Preparation || canvasW < 700) return;
   const x = shopOriginX;
   const y = shopOriginY;
   ctx.fillStyle = 'rgba(255,255,255,0.6)';
@@ -527,14 +542,13 @@ export function canvasToGrid(canvasX: number, canvasY: number): Position | null 
       if (d2 < bestDist) { bestDist = d2; best = { col, row }; }
     }
   }
-  if (best && bestDist > (HEX_RADIUS * layoutScale) ** 2 * 2.0) return null;
+  if (best && bestDist > HEX_RADIUS ** 2 * 2.0) return null;
   return best;
 }
 
 export function canvasToBenchSlot(canvasX: number, canvasY: number): number {
   const isMobile = canvasW < 700;
-  const slotSize = isMobile ? 44 : 52;
-  const gap = isMobile ? 8 : 14;
+  const { slotSize, gap } = getBenchMetrics();
   for (let i = 0; i < BENCH_SLOTS; i++) {
     const x = isMobile ? (benchOriginX + i * (slotSize + gap) + slotSize / 2) : (benchOriginX + slotSize / 2);
     const y = isMobile ? (benchOriginY + slotSize / 2) : (benchOriginY + i * (slotSize + gap) + slotSize / 2);
@@ -547,6 +561,7 @@ export function canvasToBenchSlot(canvasX: number, canvasY: number): number {
 }
 
 export function canvasToShopSlot(canvasX: number, canvasY: number): number {
+  if (canvasW < 700) return -1;
   const sx = shopOriginX;
   const sy = shopOriginY + 6;
   for (let i = 0; i < 5; i++) {
@@ -559,6 +574,7 @@ export function canvasToShopSlot(canvasX: number, canvasY: number): number {
 }
 
 export function canvasToEquipSlot(canvasX: number, canvasY: number): number {
+  if (canvasW < 700) return -1;
   const ex = equipOriginX;
   const ey = equipOriginY + 18;
   for (let i = 0; i < 4; i++) {
@@ -580,8 +596,7 @@ export function gridCenterToCanvas(pos: Position): { x: number; y: number } {
 
 export function benchSlotCenterToCanvas(slot: number): { x: number; y: number } {
   const isMobile = canvasW < 700;
-  const slotSize = isMobile ? 44 : 52;
-  const gap = isMobile ? 8 : 14;
+  const { slotSize, gap } = getBenchMetrics();
   return {
     x: isMobile ? (benchOriginX + slot * (slotSize + gap) + slotSize / 2) : (benchOriginX + slotSize / 2),
     y: isMobile ? (benchOriginY + slotSize / 2) : (benchOriginY + slot * (slotSize + gap) + slotSize / 2),

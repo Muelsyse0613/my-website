@@ -94,23 +94,42 @@ function Game({ heroPool }: { heroPool: HeroTemplate[] }) {
   const [displaySize, setDisplaySize] = useState({ width: 880, height: 680 });
 
   useEffect(() => {
-    if (!containerRef.current) return;
-    const obs = new ResizeObserver((entries) => {
-      for (const entry of entries) {
-        const { width } = entry.contentRect;
-        const w = Math.min(880, Math.max(600, width));
-        setDisplaySize({ width: w, height: 680 });
-      }
-    });
-    obs.observe(containerRef.current);
-    return () => obs.disconnect();
+    const el = containerRef.current;
+    if (!el) return;
+
+    const updateSize = () => {
+      const rawWidth = Math.floor(el.getBoundingClientRect().width || window.innerWidth);
+      const isMobile = rawWidth < 700 || window.innerWidth < 700;
+      const width = isMobile
+        ? Math.max(300, Math.min(rawWidth, window.innerWidth - 16))
+        : Math.min(880, Math.max(600, rawWidth));
+      const height = isMobile
+        ? Math.round(Math.min(560, Math.max(430, width * 1.28)))
+        : 680;
+
+      setDisplaySize((prev) =>
+        prev.width === width && prev.height === height ? prev : { width, height }
+      );
+    };
+
+    updateSize();
+    const obs = new ResizeObserver(updateSize);
+    obs.observe(el);
+    window.addEventListener('resize', updateSize);
+    window.addEventListener('orientationchange', updateSize);
+
+    return () => {
+      obs.disconnect();
+      window.removeEventListener('resize', updateSize);
+      window.removeEventListener('orientationchange', updateSize);
+    };
   }, []);
 
   useEffect(() => {
     if (!canvasRef.current) return;
     const ctx = canvasRef.current.getContext('2d');
     if (!ctx) return;
-    renderAll(ctx, state, displaySize.width, 680);
+    renderAll(ctx, state, displaySize.width, displaySize.height);
   }, [state, displaySize]);
 
   // Mouse handlers
@@ -325,7 +344,7 @@ function Game({ heroPool }: { heroPool: HeroTemplate[] }) {
               ref={canvasRef}
               className="auto-chess-canvas"
               width={displaySize.width}
-              height={680}
+              height={displaySize.height}
               onMouseDown={handleMouseDown}
               onMouseMove={handleMouseMove}
               onMouseUp={handleMouseUp}
@@ -353,7 +372,14 @@ function Game({ heroPool }: { heroPool: HeroTemplate[] }) {
 
           {/* Unit Info Panel */}
           {selectedUnit && !state.gameOver && (
-            <div className="auto-chess-info-panel" style={{ left: Math.min(displaySize.width - 220, 480), top: 80 }}>
+            <div
+              className="auto-chess-info-panel"
+              style={
+                displaySize.width < 700
+                  ? { left: 12, right: 12, top: 72 }
+                  : { left: Math.min(displaySize.width - 220, 480), top: 80 }
+              }
+            >
               <h4>
                 {selectedUnit.name}{' '}
                 <span style={{ color: '#ffd700', fontSize: 14 }}>
@@ -403,15 +429,15 @@ function Game({ heroPool }: { heroPool: HeroTemplate[] }) {
         {/* Side Panel */}
         <div className="auto-chess-side-col">
           {state.phase === GamePhase.Preparation && (
-            <div className="auto-chess-glass" style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>
+            <div className="auto-chess-glass auto-chess-shop-panel">
+              <h5>商店</h5>
               {state.shopUnits.map((unit, i) => (
-                <div key={unit ? unit.id : `empty-${i}`} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 0', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                <div key={unit ? unit.id : `empty-${i}`} className="auto-chess-shop-row">
                   {unit ? (
                     <>
-                      <span style={{ color: '#e2e8f0' }}>{unit.name}</span>
+                      <span className="auto-chess-shop-name">{unit.name}</span>
                       <button
-                        className="auto-chess-btn"
-                        style={{ fontSize: 11, padding: '2px 10px' }}
+                        className="auto-chess-btn auto-chess-shop-buy"
                         disabled={state.gold < unit.price}
                         onClick={() => dispatch({ type: 'BUY_UNIT', shopIndex: i })}
                       >
@@ -419,7 +445,7 @@ function Game({ heroPool }: { heroPool: HeroTemplate[] }) {
                       </button>
                     </>
                   ) : (
-                    <span style={{ padding: '4px 0', color: 'rgba(255,255,255,0.2)', textAlign: 'center', width: '100%' }}>已购买</span>
+                    <span className="auto-chess-shop-empty">已购买</span>
                   )}
                 </div>
               ))}
@@ -443,13 +469,22 @@ function Game({ heroPool }: { heroPool: HeroTemplate[] }) {
           )}
 
           {state.phase === GamePhase.Preparation && state.equipmentInventory.length > 0 && (
-            <div className="auto-chess-glass" style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>
-              <h5 style={{ margin: '0 0 4px', color: 'rgba(255,255,255,0.4)', fontSize: 11 }}>装备栏</h5>
+            <div className="auto-chess-glass auto-chess-equipment-panel">
+              <h5>装备栏</h5>
               {state.equipmentInventory.map((item, idx) => (
-                <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0', color: '#ffd700', fontSize: 12 }}>
+                <button
+                  key={`${item.type}-${idx}`}
+                  className="auto-chess-equipment-row"
+                  disabled={selectedUnit === null}
+                  onClick={() => {
+                    if (selectedUnit) {
+                      dispatch({ type: 'EQUIP_ITEM', itemType: item.type, targetUnitId: selectedUnit.id });
+                    }
+                  }}
+                >
                   <span>{item.name}</span>
-                  <span style={{ color: 'rgba(255,255,255,0.4)', fontSize: 10 }}>{item.description}</span>
-                </div>
+                  <span>{item.description}</span>
+                </button>
               ))}
             </div>
           )}

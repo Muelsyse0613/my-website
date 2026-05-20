@@ -269,6 +269,9 @@ const LINE_AOE_SKILL: Skill = {
         affected.add(u.id);
         takeDamage(u, totalDamage, true);
         addFloating(state, u.smoothPos.x, u.smoothPos.y, `-${totalDamage}`, '#ff9800');
+        if (u.state === UnitState.Dead) {
+          handleUnitDeath(u, state);
+        }
       }
     }
 
@@ -1027,6 +1030,7 @@ export function getInitialState(
     vfxEffects: [],
     statusMessage: '拖拽单位到棋盘上布阵，按空格开始战斗',
     combatTickAcc: 0,
+    settlementResolved: false,
   };
 
   state.traitCounts = calculateTraitCounts(state.units, state.board);
@@ -1232,6 +1236,7 @@ export function gameReducer(
       }
 
       next.combatTickAcc = 0;
+      next.settlementResolved = false;
       return next;
     }
 
@@ -1270,6 +1275,7 @@ export function gameReducer(
           next.statusMessage = '生命值耗尽，游戏结束...';
         }
       }
+      next.settlementResolved = true;
       return next;
     }
 
@@ -1277,6 +1283,31 @@ export function gameReducer(
       if (state.phase !== GamePhase.Settlement) return state;
       if (state.gameOver) {
         return getInitialState(heroPool);
+      }
+
+      // Auto-resolve settlement if END_BATTLE was skipped
+      if (!state.settlementResolved) {
+        if (state.victory) {
+          next.gold += 10 + state.round * 2;
+          if (state.round >= 3) {
+            next.gameOver = true;
+            next.victory = true;
+            next.settlementResolved = true;
+            next.statusMessage = '恭喜！你赢得了所有战斗！';
+            return next;
+          }
+        } else {
+          const hpLoss = 10 + state.round * 2;
+          next.playerHP = Math.max(0, state.playerHP - hpLoss);
+          if (next.playerHP <= 0) {
+            next.gameOver = true;
+            next.victory = false;
+            next.settlementResolved = true;
+            next.statusMessage = '生命值耗尽，游戏结束...';
+            return next;
+          }
+        }
+        next.settlementResolved = true;
       }
 
       next.phase = GamePhase.Preparation;
