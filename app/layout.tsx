@@ -44,7 +44,8 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <head>
-        <link rel="stylesheet" href="/styles/home.css" />
+        <link rel="preconnect" href="https://psxbkmivluagujdqnfsu.supabase.co" crossOrigin="anonymous" />
+        <link rel="dns-prefetch" href="https://psxbkmivluagujdqnfsu.supabase.co" />
       </head>
       <body className="min-h-full flex flex-col">{children}</body>
     </html>

@@ -216,7 +216,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
     case 'UNDO': {
       if (state.isAIThinking || state.moveHistory.length < 2) return state;
       if (state.difficulty === 'hard' || state.difficulty === 'master') return state;
-      const stepsBack = state.moveHistory[state.moveHistory.length - 1].player === state.humanPlayer ? 2 : 1;
+      const stepsBack = state.moveHistory[state.moveHistory.length - 1].player === state.humanPlayer ? 1 : 2;
       const newHistory = state.moveHistory.slice(0, -stepsBack);
       let newBoard = createEmptyBoard();
       for (const m of newHistory) {
