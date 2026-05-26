@@ -14,6 +14,7 @@ export const enum UnitState {
 }
 
 export const enum GamePhase {
+  ContractSelection,
   Preparation,
   Battle,
   Settlement,
@@ -24,6 +25,9 @@ export const enum ItemType {
   ChainMail,
   Bow,
   BlueCrystal,
+  GiantBelt,
+  MysticOrb,
+  BloodCharm,
 }
 
 export const enum TraitBonusType {
@@ -38,7 +42,25 @@ export const enum TraitBonusType {
 export const enum TraitMechanic {
   SkillDamageMultiplier,
   DoubleAttackChance,
+  ManaGainMultiplier,
+  LifeSteal,
+  CritChance,
+  ShieldOnStart,
 }
+
+export type SkillType =
+  | 'Stun'
+  | 'LineAOE'
+  | 'HealAura'
+  | 'Fireball'
+  | 'ChainLightning'
+  | 'ShieldWall'
+  | 'Execute'
+  | 'ManaBurn'
+  | 'PoisonNova'
+  | 'DashStrike';
+
+export type ContractCategory = 'enemy' | 'player' | 'rule' | 'economy';
 
 // ===== Grid =====
 export interface Position {
@@ -69,7 +91,7 @@ export interface HeroTemplate {
   armor: number;
   magicRes: number;
   price: number;
-  skillType: 'Stun' | 'LineAOE' | 'HealAura';
+  skillType: SkillType;
   traits: string[];
 }
 
@@ -102,6 +124,10 @@ export interface UnitInstance {
   baseAtk: number;
   baseArmor: number;
   baseMagicRes: number;
+  baseMaxMana: number;
+  baseRange: number;
+  baseAttackSpeed: number;
+  baseMoveSpeed: number;
   target: UnitInstance | null;
   attackSpeed: number;
   attackCooldown: number;
@@ -115,11 +141,14 @@ export interface UnitInstance {
   moveTarget: Position;
   items: Item[];
   maxEquipSlots: number;
+  shield: number;
+  isShopUnit: boolean;
+  removedFromGame: boolean;
 }
 
 // ===== Skill =====
 export interface Skill {
-  type: 'Stun' | 'LineAOE' | 'HealAura';
+  type: SkillType;
   manaCost: number;
   canCast(caster: UnitInstance, target: UnitInstance | null): boolean;
   cast(
@@ -160,39 +189,131 @@ export const TRAIT_BONUSES: Record<string, TraitBonusDef[]> = {
   战士: [
     { requiredCount: 2, type: TraitBonusType.HpPercent, value: 0.15 },
     { requiredCount: 4, type: TraitBonusType.Armor, value: 20 },
+    { requiredCount: 6, type: TraitBonusType.HpPercent, value: 0.25 },
   ],
   法师: [
-    { requiredCount: 2, type: TraitBonusType.AtkPercent, value: 0.2 },
+    { requiredCount: 2, type: TraitBonusType.AtkPercent, value: 0.12 },
     { requiredCount: 4, type: TraitBonusType.MagicRes, value: 20 },
+    { requiredCount: 6, type: TraitBonusType.AtkPercent, value: 0.25 },
   ],
   神盾: [
     { requiredCount: 2, type: TraitBonusType.Armor, value: 10 },
     { requiredCount: 4, type: TraitBonusType.HpPercent, value: 0.1 },
+    { requiredCount: 6, type: TraitBonusType.Armor, value: 25 },
+  ],
+  神盾使: [
+    { requiredCount: 2, type: TraitBonusType.Armor, value: 10 },
+    { requiredCount: 4, type: TraitBonusType.HpPercent, value: 0.12 },
   ],
   枪手: [
     { requiredCount: 2, type: TraitBonusType.AtkFlat, value: 10 },
     { requiredCount: 4, type: TraitBonusType.AtkPercent, value: 0.15 },
+    { requiredCount: 6, type: TraitBonusType.AtkFlat, value: 25 },
+  ],
+  狙神: [
+    { requiredCount: 2, type: TraitBonusType.AtkFlat, value: 12 },
+    { requiredCount: 4, type: TraitBonusType.AtkPercent, value: 0.22 },
   ],
   斗士: [
     { requiredCount: 2, type: TraitBonusType.HpPercent, value: 0.15 },
     { requiredCount: 4, type: TraitBonusType.HpPercent, value: 0.4 },
+    { requiredCount: 6, type: TraitBonusType.HpFlat, value: 300 },
+  ],
+  刺客: [
+    { requiredCount: 2, type: TraitBonusType.AtkPercent, value: 0.12 },
+    { requiredCount: 4, type: TraitBonusType.AtkPercent, value: 0.25 },
+  ],
+  神谕: [
+    { requiredCount: 2, type: TraitBonusType.MagicRes, value: 10 },
+    { requiredCount: 4, type: TraitBonusType.MagicRes, value: 28 },
+  ],
+  秘术: [
+    { requiredCount: 2, type: TraitBonusType.MagicRes, value: 18 },
+    { requiredCount: 4, type: TraitBonusType.MagicRes, value: 42 },
+  ],
+  先锋: [
+    { requiredCount: 2, type: TraitBonusType.Armor, value: 18 },
+    { requiredCount: 4, type: TraitBonusType.Armor, value: 42 },
   ],
 };
 
 export const TRAIT_MECHANICS: Record<string, TraitMechanicDef[]> = {
   法师: [
-    { requiredCount: 3, mechanic: TraitMechanic.SkillDamageMultiplier, value: 2.0 },
+    { requiredCount: 3, mechanic: TraitMechanic.SkillDamageMultiplier, value: 1.55 },
+    { requiredCount: 5, mechanic: TraitMechanic.SkillDamageMultiplier, value: 2.1 },
   ],
   狙神: [
-    { requiredCount: 2, mechanic: TraitMechanic.DoubleAttackChance, value: 0.3 },
-    { requiredCount: 4, mechanic: TraitMechanic.DoubleAttackChance, value: 0.6 },
+    { requiredCount: 2, mechanic: TraitMechanic.DoubleAttackChance, value: 0.25 },
+    { requiredCount: 4, mechanic: TraitMechanic.DoubleAttackChance, value: 0.5 },
+  ],
+  枪手: [
+    { requiredCount: 4, mechanic: TraitMechanic.DoubleAttackChance, value: 0.25 },
+  ],
+  神谕: [
+    { requiredCount: 2, mechanic: TraitMechanic.ManaGainMultiplier, value: 1.25 },
+    { requiredCount: 4, mechanic: TraitMechanic.ManaGainMultiplier, value: 1.65 },
+  ],
+  刺客: [
+    { requiredCount: 2, mechanic: TraitMechanic.CritChance, value: 0.2 },
+    { requiredCount: 4, mechanic: TraitMechanic.CritChance, value: 0.38 },
+  ],
+  斗士: [
+    { requiredCount: 4, mechanic: TraitMechanic.LifeSteal, value: 0.12 },
+  ],
+  神盾: [
+    { requiredCount: 2, mechanic: TraitMechanic.ShieldOnStart, value: 80 },
+    { requiredCount: 4, mechanic: TraitMechanic.ShieldOnStart, value: 180 },
+  ],
+  神盾使: [
+    { requiredCount: 2, mechanic: TraitMechanic.ShieldOnStart, value: 80 },
+    { requiredCount: 4, mechanic: TraitMechanic.ShieldOnStart, value: 180 },
   ],
 };
 
 export const TRAIT_NAMES_CN: Record<string, string> = {
   神盾使: '神盾使',
   神谕: '神谕',
+  法师: '法师',
+  战士: '战士',
+  枪手: '枪手',
+  狙神: '狙神',
+  斗士: '斗士',
+  刺客: '刺客',
+  秘术: '秘术',
+  先锋: '先锋',
 };
+
+// ===== Contract System =====
+export interface ContractModifiers {
+  enemyHpMultiplier: number;
+  enemyAtkMultiplier: number;
+  enemyArmorBonus: number;
+  enemyMagicResBonus: number;
+  enemyAttackSpeedMultiplier: number;
+  enemyStartingManaBonus: number;
+  enemyCountBonus: number;
+  playerHpMultiplier: number;
+  playerAtkMultiplier: number;
+  playerArmorPenalty: number;
+  playerManaCostMultiplier: number;
+  deploymentLimitPenalty: number;
+  interestDisabled: boolean;
+  itemDropMultiplier: number;
+  refreshCostBonus: number;
+  interestCapReduction: number;
+  buyCostBonus: number;
+  sellPriceMultiplier: number;
+}
+
+export interface ContractTag {
+  id: string;
+  name: string;
+  description: string;
+  risk: number;
+  category: ContractCategory;
+  exclusiveGroup?: string;
+  modifiers: Partial<ContractModifiers>;
+}
 
 // ===== Floating Text =====
 export interface FloatingText {
@@ -208,7 +329,7 @@ export interface FloatingText {
 // ===== VFX Effect =====
 export interface VFXEffect {
   id: number;
-  type: 'lineAoe' | 'healAura';
+  type: 'lineAoe' | 'healAura' | 'explosion' | 'shield' | 'chain' | 'poison' | 'slash';
   startPos?: { x: number; y: number };
   endPos?: { x: number; y: number };
   centerPos?: { x: number; y: number };
@@ -228,6 +349,7 @@ export interface DragState {
 export interface GameState {
   phase: GamePhase;
   round: number;
+  maxRound: number;
   playerHP: number;
   gold: number;
   populationCap: number;
@@ -246,10 +368,15 @@ export interface GameState {
   floatingTexts: FloatingText[];
   vfxEffects: VFXEffect[];
   statusMessage: string;
-  // Combat tick accumulator (tracks partial frame time)
   combatTickAcc: number;
-  // Whether END_BATTLE has processed the settlement (gold/HP/gameOver)
   settlementResolved: boolean;
+  winStreak: number;
+  loseStreak: number;
+  lastBattleSurvivors: number;
+  selectedContracts: string[];
+  contractLocked: boolean;
+  bestRisk: number;
+  currentRisk: number;
 }
 
 // ===== Game Actions =====
@@ -267,5 +394,9 @@ export type GameAction =
   | { type: 'REFRESH_SHOP' }
   | { type: 'UPGRADE_POPULATION' }
   | { type: 'EQUIP_ITEM'; itemType: ItemType; targetUnitId: number }
+  | { type: 'UNEQUIP_ITEM'; unitId: number; itemIndex: number }
+  | { type: 'TOGGLE_CONTRACT'; contractId: string }
+  | { type: 'CLEAR_CONTRACTS' }
+  | { type: 'CONFIRM_CONTRACTS' }
   | { type: 'SELECT_UNIT'; unitId: number | null }
   | { type: 'NEW_GAME' };

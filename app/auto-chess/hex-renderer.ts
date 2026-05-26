@@ -46,6 +46,9 @@ export function preloadItemIcons(): void {
     [ItemType.ChainMail, 'chain_mail'],
     [ItemType.Bow, 'bow'],
     [ItemType.BlueCrystal, 'blue_crystal'],
+    [ItemType.GiantBelt, 'giant_belt'],
+    [ItemType.MysticOrb, 'mystic_orb'],
+    [ItemType.BloodCharm, 'blood_charm'],
   ];
   for (const [type, file] of iconMap) {
     const img = new Image();
@@ -240,6 +243,26 @@ function drawHexGrid(ctx: CanvasRenderingContext2D, state: GameState): void {
       }
 
       if (unit && unit.state !== UnitState.Dead) {
+        // Owner-colored inner hex border
+        const innerScale = 0.82;
+        const ownerColor = unit.owner === Owner.PlayerCtrl
+          ? { r: 79, g: 195, b: 247 }   // #4fc3f7 cyan
+          : { r: 239, g: 83, b: 80 };    // #ef5350 red
+        const grad = ctx.createRadialGradient(c.x, c.y, r * innerScale * 0.5, c.x, c.y, r * innerScale);
+        grad.addColorStop(0, `rgba(${ownerColor.r},${ownerColor.g},${ownerColor.b},0)`);
+        grad.addColorStop(0.7, `rgba(${ownerColor.r},${ownerColor.g},${ownerColor.b},0.15)`);
+        grad.addColorStop(1, `rgba(${ownerColor.r},${ownerColor.g},${ownerColor.b},0.45)`);
+        ctx.beginPath();
+        const iverts = verts.map((v) => ({
+          x: c.x + (v.x - c.x) * innerScale,
+          y: c.y + (v.y - c.y) * innerScale,
+        }));
+        ctx.moveTo(iverts[0].x, iverts[0].y);
+        for (let i = 1; i < 6; i++) ctx.lineTo(iverts[i].x, iverts[i].y);
+        ctx.closePath();
+        ctx.fillStyle = grad;
+        ctx.fill();
+
         drawUnitOnHex(ctx, unit, c.x, c.y);
       }
     }
@@ -348,7 +371,7 @@ function drawBenchSlots(ctx: CanvasRenderingContext2D, state: GameState): void {
     }
 
     const unit = state.bench[i];
-    if (unit) {
+    if (unit && !unit.removedFromGame) {
       const img = getUnitSprite(unit.name);
       if (img && img.complete && img.naturalWidth > 0) {
         ctx.drawImage(img, x - slotSize / 2 + 4, y - slotSize / 2 + 4, slotSize - 8, slotSize - 8);
@@ -484,6 +507,48 @@ function drawVFX(ctx: CanvasRenderingContext2D, effects: VFXEffect[]): void {
       ctx.fillStyle = `rgba(100, 255, 100, ${alpha * 0.1})`;
       ctx.fill();
     }
+    if (vfx.type === 'explosion' && vfx.centerPos) {
+      const cx = boardOriginX + vfx.centerPos.x * layoutScale;
+      const cy = boardOriginY + vfx.centerPos.y * layoutScale;
+      const radius = (vfx.radius ?? 80) * layoutScale * (1 + elapsed / vfx.duration * 0.35);
+      ctx.fillStyle = `rgba(255, 120, 40, ${alpha * 0.18})`;
+      ctx.beginPath();
+      ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = `rgba(255, 190, 80, ${alpha})`;
+      ctx.lineWidth = 2 * layoutScale;
+      ctx.stroke();
+    }
+    if (vfx.type === 'shield' && vfx.centerPos) {
+      const cx = boardOriginX + vfx.centerPos.x * layoutScale;
+      const cy = boardOriginY + vfx.centerPos.y * layoutScale;
+      ctx.strokeStyle = `rgba(125, 211, 252, ${alpha})`;
+      ctx.lineWidth = 2 * layoutScale;
+      ctx.beginPath();
+      ctx.arc(cx, cy, (vfx.radius ?? 70) * layoutScale, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.fillStyle = `rgba(56, 189, 248, ${alpha * 0.08})`;
+      ctx.fill();
+    }
+    if ((vfx.type === 'chain' || vfx.type === 'slash') && vfx.startPos && vfx.endPos) {
+      ctx.strokeStyle = vfx.type === 'chain' ? `rgba(167, 139, 250, ${alpha})` : `rgba(250, 204, 21, ${alpha})`;
+      ctx.lineWidth = (vfx.type === 'chain' ? 2 : 4) * layoutScale;
+      ctx.beginPath();
+      ctx.moveTo(boardOriginX + vfx.startPos.x * layoutScale, boardOriginY + vfx.startPos.y * layoutScale);
+      ctx.lineTo(boardOriginX + vfx.endPos.x * layoutScale, boardOriginY + vfx.endPos.y * layoutScale);
+      ctx.stroke();
+    }
+    if (vfx.type === 'poison' && vfx.centerPos) {
+      const cx = boardOriginX + vfx.centerPos.x * layoutScale;
+      const cy = boardOriginY + vfx.centerPos.y * layoutScale;
+      ctx.strokeStyle = `rgba(132, 204, 22, ${alpha})`;
+      ctx.lineWidth = 2 * layoutScale;
+      ctx.beginPath();
+      ctx.arc(cx, cy, (vfx.radius ?? 120) * layoutScale, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.fillStyle = `rgba(132, 204, 22, ${alpha * 0.08})`;
+      ctx.fill();
+    }
   }
 }
 
@@ -549,15 +614,18 @@ export function canvasToGrid(canvasX: number, canvasY: number): Position | null 
 export function canvasToBenchSlot(canvasX: number, canvasY: number): number {
   const isMobile = canvasW < 700;
   const { slotSize, gap } = getBenchMetrics();
+  let best = -1;
+  let bestDist = Infinity;
   for (let i = 0; i < BENCH_SLOTS; i++) {
     const x = isMobile ? (benchOriginX + i * (slotSize + gap) + slotSize / 2) : (benchOriginX + slotSize / 2);
     const y = isMobile ? (benchOriginY + slotSize / 2) : (benchOriginY + i * (slotSize + gap) + slotSize / 2);
-    if (canvasX > x - slotSize / 2 && canvasX < x + slotSize / 2 &&
-        canvasY > y - slotSize / 2 && canvasY < y + slotSize / 2) {
-      return i;
-    }
+    const dx = canvasX - x;
+    const dy = canvasY - y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    if (dist < bestDist) { bestDist = dist; best = i; }
   }
-  return -1;
+  const threshold = slotSize / 2 + gap;
+  return bestDist <= threshold ? best : -1;
 }
 
 export function canvasToShopSlot(canvasX: number, canvasY: number): number {
@@ -577,7 +645,7 @@ export function canvasToEquipSlot(canvasX: number, canvasY: number): number {
   if (canvasW < 700) return -1;
   const ex = equipOriginX;
   const ey = equipOriginY + 18;
-  for (let i = 0; i < 4; i++) {
+  for (let i = 0; i < 8; i++) {
     const ix = ex + i * 40;
     if (canvasX > ix && canvasX < ix + 36 && canvasY > ey && canvasY < ey + 36) {
       return i;

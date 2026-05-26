@@ -15,8 +15,13 @@ import {
   UnitState,
 } from './types';
 import {
+  CONTRACT_TAGS,
   gameReducer,
+  getEffectivePopulationCap,
   getInitialState,
+  getRefreshCost,
+  getRiskScore,
+  getRoundStageName,
   getUpgradeCost,
   getUnitSellPrice,
 } from './game-logic';
@@ -52,22 +57,16 @@ function Game({ heroPool }: { heroPool: HeroTemplate[] }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const battleLoopRef = useRef<BattleLoop | null>(null);
   const stateRef = useRef<GameState>(state);
+  const [helpOpen, setHelpOpen] = useState(false);
 
   useEffect(() => {
     stateRef.current = state;
   });
 
-  // Preload sprites
+  // Preload all hero sprites once so late-round enemies / rerolled shops do not flash fallback circles.
   useEffect(() => {
-    for (const u of state.units) {
-      const tpl = heroPool.find((h) => h.name === u.name);
-      if (tpl) preloadSprite(tpl.sprite, tpl.name);
-    }
-    for (const u of state.shopUnits) {
-      if (u) {
-        const tpl = heroPool.find((h) => h.name === u.name);
-        if (tpl) preloadSprite(tpl.sprite, tpl.name);
-      }
+    for (const tpl of heroPool) {
+      preloadSprite(tpl.sprite, tpl.name);
     }
     preloadItemIcons();
   }, [heroPool]);
@@ -92,6 +91,17 @@ function Game({ heroPool }: { heroPool: HeroTemplate[] }) {
 
   // Canvas rendering
   const [displaySize, setDisplaySize] = useState({ width: 880, height: 680 });
+
+  const getCanvasPoint = useCallback((clientX: number, clientY: number): { x: number; y: number } | null => {
+    const canvas = canvasRef.current;
+    if (!canvas) return null;
+    const rect = canvas.getBoundingClientRect();
+    if (!rect.width || !rect.height) return null;
+    return {
+      x: ((clientX - rect.left) / rect.width) * displaySize.width,
+      y: ((clientY - rect.top) / rect.height) * displaySize.height,
+    };
+  }, [displaySize.width, displaySize.height]);
 
   useEffect(() => {
     const el = containerRef.current;
@@ -204,21 +214,21 @@ function Game({ heroPool }: { heroPool: HeroTemplate[] }) {
 
   const handleMouseDown = useCallback(
     (e: React.MouseEvent<HTMLCanvasElement>) => {
-      const rect = canvasRef.current?.getBoundingClientRect();
-      if (!rect) return;
-      handlePointerDown(e.clientX - rect.left, e.clientY - rect.top);
+      const p = getCanvasPoint(e.clientX, e.clientY);
+      if (!p) return;
+      handlePointerDown(p.x, p.y);
     },
-    [handlePointerDown]
+    [handlePointerDown, getCanvasPoint]
   );
 
   const handleMouseMove = useCallback(
     (e: React.MouseEvent<HTMLCanvasElement>) => {
       if (!stateRef.current?.dragging) return;
-      const rect = canvasRef.current?.getBoundingClientRect();
-      if (!rect) return;
-      dispatch({ type: 'DRAG_MOVE', mousePos: { x: e.clientX - rect.left, y: e.clientY - rect.top } });
+      const p = getCanvasPoint(e.clientX, e.clientY);
+      if (!p) return;
+      dispatch({ type: 'DRAG_MOVE', mousePos: p });
     },
-    []
+    [getCanvasPoint]
   );
 
   const handleMouseUp = useCallback(
@@ -243,11 +253,11 @@ function Game({ heroPool }: { heroPool: HeroTemplate[] }) {
       e.preventDefault();
       const touch = e.touches[0];
       if (!touch) return;
-      const rect = canvasRef.current?.getBoundingClientRect();
-      if (!rect) return;
-      handlePointerDown(touch.clientX - rect.left, touch.clientY - rect.top);
+      const p = getCanvasPoint(touch.clientX, touch.clientY);
+      if (!p) return;
+      handlePointerDown(p.x, p.y);
     },
-    [handlePointerDown]
+    [handlePointerDown, getCanvasPoint]
   );
 
   const handleTouchMove = useCallback(
@@ -256,11 +266,11 @@ function Game({ heroPool }: { heroPool: HeroTemplate[] }) {
       if (!stateRef.current?.dragging) return;
       const touch = e.touches[0];
       if (!touch) return;
-      const rect = canvasRef.current?.getBoundingClientRect();
-      if (!rect) return;
-      dispatch({ type: 'DRAG_MOVE', mousePos: { x: touch.clientX - rect.left, y: touch.clientY - rect.top } });
+      const p = getCanvasPoint(touch.clientX, touch.clientY);
+      if (!p) return;
+      dispatch({ type: 'DRAG_MOVE', mousePos: p });
     },
-    []
+    [getCanvasPoint]
   );
 
   const handleTouchEnd = useCallback(
@@ -287,7 +297,9 @@ function Game({ heroPool }: { heroPool: HeroTemplate[] }) {
       if (!s) return;
       if (e.key === ' ' || e.code === 'Space') {
         e.preventDefault();
-        if (s.phase === GamePhase.Preparation) {
+        if (s.phase === GamePhase.ContractSelection) {
+          dispatch({ type: 'CONFIRM_CONTRACTS' });
+        } else if (s.phase === GamePhase.Preparation) {
           dispatch({ type: 'START_BATTLE' });
         } else if (s.phase === GamePhase.Settlement && !s.gameOver) {
           dispatch({ type: 'NEXT_ROUND' });
@@ -295,8 +307,8 @@ function Game({ heroPool }: { heroPool: HeroTemplate[] }) {
           dispatch({ type: 'NEW_GAME' });
         }
       }
-      if (e.key === 'r' || e.key === 'R') dispatch({ type: 'REFRESH_SHOP' });
-      if (e.key === 'p' || e.key === 'P') dispatch({ type: 'UPGRADE_POPULATION' });
+      if ((e.key === 'r' || e.key === 'R') && s.phase === GamePhase.Preparation) dispatch({ type: 'REFRESH_SHOP' });
+      if ((e.key === 'p' || e.key === 'P') && s.phase === GamePhase.Preparation) dispatch({ type: 'UPGRADE_POPULATION' });
       if (e.key === 'Escape') {
         dispatch({ type: 'DRAG_CANCEL' });
         dispatch({ type: 'SELECT_UNIT', unitId: null });
@@ -311,6 +323,20 @@ function Game({ heroPool }: { heroPool: HeroTemplate[] }) {
       ? state.units.find((u) => u.id === state.selectedUnitId)
       : null;
 
+  const onBoardCount = state.units.filter(
+    (u) =>
+      u.owner === Owner.PlayerCtrl &&
+      u.state !== UnitState.Dead &&
+      !u.isShopUnit &&
+      !u.removedFromGame &&
+      state.board.containsUnit(u)
+  ).length;
+  const effectivePopulationCap = getEffectivePopulationCap(state);
+  const riskScore = getRiskScore(state.selectedContracts);
+  const refreshCost = getRefreshCost(state);
+  const riskRewardPreview = Math.floor(riskScore * 1.5);
+  const selectedContractSet = new Set(state.selectedContracts);
+
   return (
     <div className="auto-chess-shell">
       {/* Top Bar */}
@@ -322,15 +348,80 @@ function Game({ heroPool }: { heroPool: HeroTemplate[] }) {
           <span className="auto-chess-stat auto-chess-stat-hp">❤ {state.playerHP}</span>
           <span className="auto-chess-stat auto-chess-stat-gold">💰 {state.gold}</span>
           <span className="auto-chess-stat auto-chess-stat-pop">
-            👥 {state.units.filter((u) => u.owner === Owner.PlayerCtrl && u.state !== UnitState.Dead && state.board.containsUnit(u)).length}/{state.populationCap}
+            👥 {onBoardCount}/{effectivePopulationCap}
           </span>
         </div>
-        <div className="auto-chess-round-badge">
-          {state.phase === GamePhase.Preparation && `第 ${state.round} 轮 · 准备`}
-          {state.phase === GamePhase.Battle && `第 ${state.round} 轮 · 战斗中`}
-          {state.phase === GamePhase.Settlement && (state.victory ? `第 ${state.round} 轮 · 胜利！` : `第 ${state.round} 轮 · 失败`)}
+        <div className="auto-chess-round-group">
+          <div className="auto-chess-round-badge">
+            {state.phase === GamePhase.ContractSelection && `合约选择 · Risk ${riskScore}`}
+            {state.phase === GamePhase.Preparation && `第 ${state.round}/${state.maxRound} 轮 · 准备 · Risk ${riskScore}`}
+            {state.phase === GamePhase.Battle && `第 ${state.round}/${state.maxRound} 轮 · ${getRoundStageName(state.round)}`}
+            {state.phase === GamePhase.Settlement && (state.victory ? `第 ${state.round}/${state.maxRound} 轮 · 胜利！` : `第 ${state.round}/${state.maxRound} 轮 · 失败`)}
+          </div>
+          {(state.phase === GamePhase.ContractSelection || state.phase === GamePhase.Preparation) && (
+            <button
+              className="auto-chess-help-btn"
+              onClick={() => setHelpOpen((v) => !v)}
+              title="新手指引"
+            >
+              新手教程
+            </button>
+          )}
         </div>
       </div>
+
+      {/* Help Panel */}
+      {helpOpen && (state.phase === GamePhase.ContractSelection || state.phase === GamePhase.Preparation) && (
+        <div className="auto-chess-help-panel">
+          <div className="auto-chess-help-header">
+            <h3>新手指引</h3>
+            <button className="auto-chess-help-close" onClick={() => setHelpOpen(false)}>✕</button>
+          </div>
+          <div className="auto-chess-help-body">
+            <section>
+              <h4>游戏流程</h4>
+              <p>游戏共 <strong>12 轮</strong>，每轮分为四个阶段：合约选择 → 准备阶段 → 自动战斗 → 结算。击败第 12 轮 Boss 即通关，生命值归零则失败。</p>
+            </section>
+            <section>
+              <h4>操作方式</h4>
+              <p><strong>点击</strong>英雄可查看详情，<strong>拖拽</strong>可在备战栏与棋盘间移动。<strong>点击商店</strong>购买英雄（3金币），购买后自动进入备战栏。空格键快速确认合约 / 开始战斗。</p>
+            </section>
+            <section>
+              <h4>经济系统</h4>
+              <table>
+                <thead><tr><th>来源</th><th>规则</th></tr></thead>
+                <tbody>
+                  <tr><td>基础收入</td><td>7~11 金币/轮（随轮次增加）</td></tr>
+                  <tr><td>利息</td><td>每 10 金多 1 金，上限 5</td></tr>
+                  <tr><td>连胜</td><td>2连胜+2 / 3连胜+3 / 5连胜+5</td></tr>
+                  <tr><td>合约奖励</td><td>Risk × 1.5 额外金币</td></tr>
+                </tbody>
+              </table>
+              <p style={{marginTop:6}}>初始金币 <strong>65</strong>。刷新商店 1 金，升级人口费用递增。</p>
+            </section>
+            <section>
+              <h4>升星与技能</h4>
+              <p>备战栏凑齐 <strong>3 个同名同星</strong>英雄自动合成为更高星级（最高★★★）。升星大幅提升属性，增加装备槽位。每个英雄拥有 <strong>技能</strong>（普攻攒蓝、满蓝自动释放）。</p>
+            </section>
+            <section>
+              <h4>特质（羁绊）</h4>
+              <p>上阵多个 <strong>相同特质</strong>的英雄可激活加成。2 人即可触发，4~6 人效果更强。部分特质还有特殊机制（如法师技能伤害×1.55、狙神 25% 双倍攻击）。点击英雄可查看详细特质效果。</p>
+            </section>
+            <section>
+              <h4>装备道具</h4>
+              <p>敌人阵亡有几率掉落装备（Boss 轮掉率更高）。选中英雄后点击道具即可穿戴。★=1槽位，★★=2槽位，★★★=3槽位。</p>
+            </section>
+            <section>
+              <h4>危机合约</h4>
+              <p>每轮可选合约标签，增加难度以换取额外金币奖励。同一组标签互斥，其余可叠加。总 Risk 越高通关越难——量力而行。</p>
+            </section>
+            <section>
+              <h4>快捷键</h4>
+              <p><kbd>空格</kbd> 确认合约 / 开始战斗 / 下一轮 &nbsp; <kbd>R</kbd> 刷新商店 &nbsp; <kbd>P</kbd> 升级人口 &nbsp; <kbd>Esc</kbd> 取消拖拽</p>
+            </section>
+          </div>
+        </div>
+      )}
 
       {/* Main Layout */}
       <div className="auto-chess-layout">
@@ -398,6 +489,10 @@ function Game({ heroPool }: { heroPool: HeroTemplate[] }) {
                 <span>🔵 Mana: {selectedUnit.mana}/{selectedUnit.maxMana}</span>
                 <span>🎯 Range: {selectedUnit.range}</span>
               </div>
+              <div className="stat-row">
+                <span>🌀 Skill: {selectedUnit.skill?.type ?? '无'}</span>
+                <span>🛡 Shield: {selectedUnit.shield}</span>
+              </div>
               <div className="traits-row">
                 {[...selectedUnit.traits].map((t) => (
                   <span key={t} className="auto-chess-trait-tag">{t}</span>
@@ -405,21 +500,31 @@ function Game({ heroPool }: { heroPool: HeroTemplate[] }) {
               </div>
               {selectedUnit.items.length > 0 && (
                 <div style={{ marginTop: 8 }}>
-                  <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>装备: </span>
-                  {selectedUnit.items.map((it) => (
-                    <span key={it.type} className="auto-chess-trait-tag" style={{ color: '#ffd700', borderColor: 'rgba(255,215,0,0.3)' }}>
+                  <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>装备 (点击取下): </span>
+                  {selectedUnit.items.map((it, iidx) => (
+                    <span
+                      key={`${it.type}-${iidx}`}
+                      className="auto-chess-trait-tag"
+                      style={{
+                        color: '#ffd700',
+                        borderColor: 'rgba(255,215,0,0.3)',
+                        cursor: 'pointer',
+                      }}
+                      title="点击取下装备"
+                      onClick={() => dispatch({ type: 'UNEQUIP_ITEM', unitId: selectedUnit.id, itemIndex: iidx })}
+                    >
                       {it.name}
                     </span>
                   ))}
                 </div>
               )}
-              {selectedUnit.owner === Owner.PlayerCtrl && (
+              {selectedUnit.owner === Owner.PlayerCtrl && state.phase === GamePhase.Preparation && (
                 <button
                   className="auto-chess-btn auto-chess-btn-danger"
                   style={{ marginTop: 10, fontSize: 11, padding: '4px 12px' }}
                   onClick={() => dispatch({ type: 'SELL_UNIT', unitId: selectedUnit.id })}
                 >
-                  出售 (${getUnitSellPrice(selectedUnit)})
+                  出售 (${getUnitSellPrice(selectedUnit, state)})
                 </button>
               )}
             </div>
@@ -449,6 +554,70 @@ function Game({ heroPool }: { heroPool: HeroTemplate[] }) {
                   )}
                 </div>
               ))}
+            </div>
+          )}
+
+          {state.phase === GamePhase.ContractSelection && (
+            <div className="auto-chess-glass auto-chess-contract-panel">
+              <h5>
+                开局危机合约
+                <span>Risk {riskScore}</span>
+              </h5>
+              <div className="auto-chess-contract-meta">
+                <span>本局锁定</span>
+                <span>奖励 +{riskRewardPreview}G</span>
+                <span>上限 {effectivePopulationCap}</span>
+              </div>
+              <div className="auto-chess-contract-list">
+                {CONTRACT_TAGS.map((tag) => {
+                  const active = selectedContractSet.has(tag.id);
+                  return (
+                    <button
+                      key={tag.id}
+                      className={`auto-chess-contract-tag ${active ? 'active' : ''}`}
+                      onClick={() => dispatch({ type: 'TOGGLE_CONTRACT', contractId: tag.id })}
+                    >
+                      <span className="auto-chess-contract-name">R{tag.risk} · {tag.name}</span>
+                      <span className="auto-chess-contract-desc">{tag.description}</span>
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="auto-chess-contract-actions">
+                {state.selectedContracts.length > 0 && (
+                  <button
+                    className="auto-chess-btn auto-chess-contract-clear"
+                    onClick={() => dispatch({ type: 'CLEAR_CONTRACTS' })}
+                  >
+                    清空合约
+                  </button>
+                )}
+                <button
+                  className="auto-chess-btn auto-chess-btn-primary auto-chess-contract-confirm"
+                  onClick={() => dispatch({ type: 'CONFIRM_CONTRACTS' })}
+                >
+                  确认进入游戏
+                </button>
+              </div>
+            </div>
+          )}
+
+          {state.phase !== GamePhase.ContractSelection && state.selectedContracts.length > 0 && (
+            <div className="auto-chess-glass auto-chess-contract-panel auto-chess-contract-locked">
+              <h5>
+                已锁定合约
+                <span>Risk {riskScore}</span>
+              </h5>
+              <div className="auto-chess-contract-meta">
+                <span>最高 {state.bestRisk}</span>
+                <span>奖励 +{riskRewardPreview}G</span>
+                <span>上限 {effectivePopulationCap}</span>
+              </div>
+              <div className="auto-chess-contract-summary">
+                {CONTRACT_TAGS.filter((tag) => selectedContractSet.has(tag.id)).map((tag) => (
+                  <span key={tag.id}>R{tag.risk} · {tag.name}</span>
+                ))}
+              </div>
             </div>
           )}
 
@@ -493,10 +662,15 @@ function Game({ heroPool }: { heroPool: HeroTemplate[] }) {
 
       {/* Bottom Bar */}
       <div className="auto-chess-bottom-bar">
+        {state.phase === GamePhase.ContractSelection && (
+          <button className="auto-chess-btn auto-chess-btn-primary" onClick={() => dispatch({ type: 'CONFIRM_CONTRACTS' })}>
+            ✅ 确认合约并进入游戏 (空格)
+          </button>
+        )}
         {state.phase === GamePhase.Preparation && (
           <>
-            <button className="auto-chess-btn" onClick={() => dispatch({ type: 'REFRESH_SHOP' })} disabled={state.gold < 2}>
-              🔄 刷新商店 ($2)
+            <button className="auto-chess-btn" onClick={() => dispatch({ type: 'REFRESH_SHOP' })} disabled={state.gold < refreshCost}>
+              🔄 刷新商店 (${refreshCost})
             </button>
             <button className="auto-chess-btn" onClick={() => dispatch({ type: 'UPGRADE_POPULATION' })} disabled={state.gold < getUpgradeCost(state.populationLevel)}>
               ⬆ 升级人口 (${getUpgradeCost(state.populationLevel)})
@@ -525,7 +699,7 @@ function Game({ heroPool }: { heroPool: HeroTemplate[] }) {
       )}
 
       <div style={{ textAlign: 'center', color: 'rgba(255,255,255,0.2)', fontSize: 11, padding: '0 0 16px' }}>
-        拖拽单位布阵 | 空格开始战斗 | R 刷新商店 | P 升级人口 | 点击单位查看详情 + 出售
+        开局先选择并锁定危机合约 | 进入游戏后拖拽单位布阵 | 空格开始战斗/下一回合 | R 刷新商店 | P 升级人口 | 点击单位查看详情 + 出售
       </div>
     </div>
   );

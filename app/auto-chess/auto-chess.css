@@ -51,6 +51,8 @@
   flex-direction: column;
   gap: 8px;
   min-width: 0;
+  position: relative;
+  z-index: 80;
 }
 
 /* ===== Top Bar ===== */
@@ -82,6 +84,13 @@
 .auto-chess-back-link:hover {
   color: rgba(255, 255, 255, 0.9);
   background: rgba(255, 255, 255, 0.1);
+}
+
+.auto-chess-round-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
 }
 
 .auto-chess-round-badge {
@@ -439,6 +448,16 @@
     font-size: 12px;
   }
 
+  .auto-chess-round-group {
+    gap: 6px;
+  }
+
+  .auto-chess-help-btn {
+    font-size: 11px;
+    height: 26px;
+    padding: 0 10px;
+  }
+
   .auto-chess-stats {
     order: 3;
     width: 100%;
@@ -581,5 +600,335 @@
 
   .auto-chess-shop-panel {
     grid-template-columns: 1fr;
+  }
+}
+
+
+/* ===== Contract Panel ===== */
+.auto-chess-contract-panel {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.65);
+}
+
+.auto-chess-contract-panel h5 {
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  margin: 0 0 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.auto-chess-contract-panel h5 span {
+  color: #fbbf24;
+  font-weight: 800;
+}
+
+.auto-chess-contract-meta {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
+.auto-chess-contract-meta span {
+  border-radius: 9999px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.04);
+  padding: 3px 5px;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+.auto-chess-contract-list {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  max-height: 230px;
+  overflow: auto;
+  padding-right: 2px;
+}
+
+.auto-chess-contract-tag {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 0.75rem;
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(255, 255, 255, 0.68);
+  padding: 6px 8px;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.2s;
+}
+
+.auto-chess-contract-tag:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.14);
+}
+
+.auto-chess-contract-tag.active {
+  border-color: rgba(251, 191, 36, 0.55);
+  background: rgba(251, 191, 36, 0.12);
+  color: #fde68a;
+}
+
+.auto-chess-contract-name {
+  font-size: 11px;
+  font-weight: 700;
+  color: inherit;
+}
+
+.auto-chess-contract-desc {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.42);
+  line-height: 1.35;
+}
+
+.auto-chess-contract-tag.active .auto-chess-contract-desc {
+  color: rgba(254, 243, 199, 0.7);
+}
+
+.auto-chess-contract-clear {
+  width: 100%;
+  margin-top: 8px;
+  min-height: 30px;
+  padding: 5px 10px;
+  font-size: 11px;
+}
+
+@media (max-width: 900px) {
+  .auto-chess-contract-panel {
+    grid-column: 1 / -1;
+    padding: 10px;
+  }
+
+  .auto-chess-contract-list {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    max-height: none;
+    overflow: visible;
+  }
+}
+
+@media (max-width: 380px) {
+  .auto-chess-contract-list {
+    grid-template-columns: 1fr;
+  }
+}
+
+.auto-chess-contract-actions {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.auto-chess-contract-confirm {
+  width: 100%;
+  min-height: 34px;
+}
+
+.auto-chess-contract-locked .auto-chess-contract-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  max-height: 92px;
+  overflow: auto;
+}
+
+.auto-chess-contract-locked .auto-chess-contract-summary span {
+  display: inline-flex;
+  border-radius: 9999px;
+  padding: 3px 7px;
+  background: rgba(251, 191, 36, 0.12);
+  border: 1px solid rgba(251, 191, 36, 0.25);
+  color: rgba(254, 243, 199, 0.82);
+  font-size: 10px;
+}
+
+/* Interaction hardening: keep sidebar controls above canvas/info overlays. */
+.auto-chess-shop-panel,
+.auto-chess-equipment-panel,
+.auto-chess-contract-panel,
+.auto-chess-trait-panel {
+  pointer-events: auto;
+}
+
+.auto-chess-shop-buy,
+.auto-chess-equipment-row,
+.auto-chess-contract-tag,
+.auto-chess-contract-confirm,
+.auto-chess-contract-clear {
+  pointer-events: auto;
+}
+
+/* ===== Help Button & Panel ===== */
+.auto-chess-help-btn {
+  height: 28px;
+  padding: 0 12px;
+  border-radius: 9999px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.auto-chess-help-btn:hover {
+  background: rgba(255, 255, 255, 0.16);
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.35);
+}
+
+.auto-chess-help-panel {
+  position: absolute;
+  top: 52px;
+  right: 24px;
+  width: 380px;
+  max-width: calc(100vw - 48px);
+  max-height: calc(100vh - 80px);
+  overflow-y: auto;
+  z-index: 100;
+  background: rgba(15, 13, 33, 0.97);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 1rem;
+  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(20px);
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 13px;
+  line-height: 1.65;
+}
+
+.auto-chess-help-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  position: sticky;
+  top: 0;
+  background: rgba(15, 13, 33, 0.97);
+  backdrop-filter: blur(20px);
+  z-index: 1;
+  border-radius: 1rem 1rem 0 0;
+}
+
+.auto-chess-help-header h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: #e2e8f0;
+}
+
+.auto-chess-help-close {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 14px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.auto-chess-help-close:hover {
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+}
+
+.auto-chess-help-body {
+  padding: 14px 18px 18px;
+}
+
+.auto-chess-help-body section {
+  margin-bottom: 16px;
+}
+
+.auto-chess-help-body section:last-child {
+  margin-bottom: 0;
+}
+
+.auto-chess-help-body h4 {
+  margin: 0 0 4px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #c4b5fd;
+}
+
+.auto-chess-help-body p {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.auto-chess-help-body table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  margin-top: 4px;
+}
+
+.auto-chess-help-body thead th {
+  text-align: left;
+  color: rgba(255, 255, 255, 0.4);
+  font-weight: 600;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 3px 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.auto-chess-help-body tbody td {
+  padding: 3px 8px;
+  color: rgba(255, 255, 255, 0.65);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.auto-chess-help-body kbd {
+  display: inline-block;
+  padding: 1px 5px;
+  border-radius: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.08);
+  font-size: 11px;
+  font-family: inherit;
+  color: rgba(255, 255, 255, 0.75);
+}
+
+@media (max-width: 900px) {
+  .auto-chess-help-panel {
+    top: 8px;
+    right: 8px;
+    left: 8px;
+    width: auto;
+    max-width: none;
+    max-height: calc(100vh - 16px);
+    border-radius: 1rem;
+  }
+
+  .auto-chess-help-body {
+    padding: 10px 14px 14px;
   }
 }
