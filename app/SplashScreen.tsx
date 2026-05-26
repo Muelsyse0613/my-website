@@ -488,14 +488,7 @@ const SPLASH_STYLE = `
 `;
 
 export default function SplashScreen() {
-  const [phase, setPhase] = useState<SplashPhase>(() => {
-    if (typeof window === 'undefined') return 'animate';
-    try {
-      return sessionStorage.getItem(SPLASH_STORAGE_KEY) ? 'done' : 'animate';
-    } catch {
-      return 'animate';
-    }
-  });
+  const [phase, setPhase] = useState<SplashPhase>('animate');
 
   useEffect(() => {
     const prehideStyle = document.querySelector('style[data-hsy-splash-prehide="true"]');

@@ -45,10 +45,8 @@ export default function RootLayout({
       lang="zh-CN"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <head>
-        <link rel="preconnect" href="https://psxbkmivluagujdqnfsu.supabase.co" crossOrigin="anonymous" />
-        <link rel="dns-prefetch" href="https://psxbkmivluagujdqnfsu.supabase.co" />
-      </head>
+      <link rel="preconnect" href="https://psxbkmivluagujdqnfsu.supabase.co" crossOrigin="anonymous" />
+      <link rel="dns-prefetch" href="https://psxbkmivluagujdqnfsu.supabase.co" />
       <body className="min-h-full flex flex-col">{children}<Analytics /><SpeedInsights /></body>
     </html>
   );
