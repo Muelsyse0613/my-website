@@ -380,7 +380,7 @@ function Game({ heroPool }: { heroPool: HeroTemplate[] }) {
           <div className="auto-chess-help-body">
             <section>
               <h4>游戏流程</h4>
-              <p>游戏共 <strong>12 轮</strong>，每轮分为四个阶段：合约选择 → 准备阶段 → 自动战斗 → 结算。击败第 12 轮 Boss 即通关，生命值归零则失败。</p>
+              <p>游戏共 <strong>12 轮</strong>，每轮分为三个阶段：准备阶段 → 自动战斗 → 结算。击败第 12 轮 Boss 即通关，生命值归零则失败。</p>
             </section>
             <section>
               <h4>操作方式</h4>
@@ -413,7 +413,7 @@ function Game({ heroPool }: { heroPool: HeroTemplate[] }) {
             </section>
             <section>
               <h4>危机合约</h4>
-              <p>每轮可选合约标签，增加难度以换取额外金币奖励。同一组标签互斥，其余可叠加。总 Risk 越高通关越难——量力而行。</p>
+              <p>游戏开始前可选合约标签，增加难度以换取额外金币奖励。同一组标签互斥，其余可叠加。总 Risk 越高通关越难——请量力而行。</p>
             </section>
             <section>
               <h4>快捷键</h4>
