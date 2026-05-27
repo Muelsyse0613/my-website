@@ -1,22 +1,11 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useState } from 'react';
 
 type SplashPhase = 'animate' | 'done';
 
 const SPLASH_STORAGE_KEY = 'splash_played_v5';
 const SPLASH_DURATION = 3600;
-
-const PRECHECK_SCRIPT = `
-  try {
-    if (window.sessionStorage && window.sessionStorage.getItem('${SPLASH_STORAGE_KEY}')) {
-      var style = document.createElement('style');
-      style.setAttribute('data-hsy-splash-prehide', 'true');
-      style.textContent = '#hsy-splash-root{display:none!important}';
-      document.head.appendChild(style);
-    }
-  } catch (error) {}
-`;
 
 const SPLASH_STYLE = `
   .splash-shell {
@@ -481,6 +470,14 @@ const SPLASH_STYLE = `
 export default function SplashScreen() {
   const [phase, setPhase] = useState<SplashPhase>('animate');
 
+  useLayoutEffect(() => {
+    try {
+      if (sessionStorage.getItem(SPLASH_STORAGE_KEY)) {
+        setPhase('done');
+      }
+    } catch {}
+  }, []);
+
   useEffect(() => {
     const prehideStyle = document.querySelector('style[data-hsy-splash-prehide="true"]');
 
@@ -509,14 +506,13 @@ export default function SplashScreen() {
 
   return (
     <>
-      <script dangerouslySetInnerHTML={{ __html: PRECHECK_SCRIPT }} />
       <style dangerouslySetInnerHTML={{ __html: SPLASH_STYLE }} />
 
       <div
         id="hsy-splash-root"
         className="splash-shell"
         aria-label="正在接入个人宇宙观测站"
-        style={hidden ? { opacity: 0, pointerEvents: 'none' } : undefined}
+        style={hidden ? { display: 'none' } : undefined}
       >
         <div className="splash-noise" aria-hidden="true" />
 

@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
 import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/next";
+import Script from "next/script";
 import "./globals.css";
 
 const geistSans = localFont({
@@ -47,7 +48,12 @@ export default function RootLayout({
     >
       <link rel="preconnect" href="https://psxbkmivluagujdqnfsu.supabase.co" crossOrigin="anonymous" />
       <link rel="dns-prefetch" href="https://psxbkmivluagujdqnfsu.supabase.co" />
-      <body className="min-h-full flex flex-col">{children}<Analytics /><SpeedInsights /></body>
+      <body className="min-h-full flex flex-col">
+        <Script id="splash-prehide" strategy="beforeInteractive">
+          {`try{if(window.sessionStorage&&window.sessionStorage.getItem('splash_played_v5')){var s=document.createElement('style');s.setAttribute('data-hsy-splash-prehide','true');s.textContent='#hsy-splash-root{display:none!important}';document.head.appendChild(s)}}catch(e){}`}
+        </Script>
+        {children}<Analytics /><SpeedInsights />
+      </body>
     </html>
   );
 }
