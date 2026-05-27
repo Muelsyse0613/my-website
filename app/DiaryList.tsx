@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import type { ReactNode } from 'react';
 import { useEffect, useMemo, useState, useRef } from 'react';
 
@@ -156,17 +157,31 @@ function ArticleCard({ diary }: { diary: Diary }) {
   const categoryName = getCategoryName(diary);
 
   const cardRef = useRef<HTMLAnchorElement>(null);
+  const rafRef = useRef<number>(0);
+  const pendingPos = useRef({ x: 0, y: 0 });
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
   const [isHovered, setIsHovered] = useState(false);
   const hasCover = Boolean(diary.cover_image_url);
 
+  useEffect(() => {
+    return () => {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    };
+  }, []);
+
   const handleMouseMove = (e: React.MouseEvent<HTMLAnchorElement>) => {
     if (cardRef.current) {
       const rect = cardRef.current.getBoundingClientRect();
-      setMousePos({
+      pendingPos.current = {
         x: e.clientX - rect.left,
         y: e.clientY - rect.top,
-      });
+      };
+      if (!rafRef.current) {
+        rafRef.current = requestAnimationFrame(() => {
+          rafRef.current = 0;
+          setMousePos(pendingPos.current);
+        });
+      }
     }
   };
 
@@ -291,11 +306,12 @@ function ArticleCard({ diary }: { diary: Diary }) {
 
           {diary.cover_image_url && (
             <div className="relative order-first aspect-square w-full overflow-hidden rounded-[1.45rem] border border-white/70 bg-slate-100 shadow-[0_18px_42px_rgba(31,41,55,0.10)] md:order-none">
-              <img
+              <Image
                 src={diary.cover_image_url}
                 alt={diary.title}
-                className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
-                loading="lazy"
+                fill
+                className="object-cover transition-transform duration-700 group-hover:scale-105"
+                sizes="(max-width: 768px) 100vw, 12rem"
               />
               <div className="absolute inset-0 bg-gradient-to-br from-white/10 via-transparent to-slate-950/16" />
             </div>

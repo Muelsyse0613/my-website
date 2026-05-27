@@ -505,14 +505,19 @@ export default function SplashScreen() {
     return () => window.clearTimeout(timer);
   }, []);
 
-  if (phase === 'done') return null;
+  const hidden = phase === 'done';
 
   return (
     <>
       <script dangerouslySetInnerHTML={{ __html: PRECHECK_SCRIPT }} />
       <style dangerouslySetInnerHTML={{ __html: SPLASH_STYLE }} />
 
-      <div id="hsy-splash-root" className="splash-shell" aria-label="正在接入个人宇宙观测站">
+      <div
+        id="hsy-splash-root"
+        className="splash-shell"
+        aria-label="正在接入个人宇宙观测站"
+        style={hidden ? { opacity: 0, pointerEvents: 'none' } : undefined}
+      >
         <div className="splash-noise" aria-hidden="true" />
 
         <div className="splash-center">

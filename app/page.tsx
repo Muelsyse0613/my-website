@@ -1,5 +1,6 @@
 import type { CSSProperties } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import ScrollReveal from '../components/ScrollReveal';
 import { createClient } from '@supabase/supabase-js';
 import VisitorHeatmap from './VisitorHeatMap';
@@ -363,11 +364,13 @@ export default async function Home() {
                   <div className="panel-inner flex h-full min-h-[31rem] flex-col">
                     {mainDiary.cover_image_url ? (
                       <div className="relative mx-7 mt-5 h-56 overflow-hidden rounded-[1.6rem] border border-white/75 bg-slate-100 shadow-[0_20px_54px_rgba(31,41,55,0.12)] sm:mx-8 sm:mt-6 sm:h-64 lg:mx-9 lg:h-72 xl:h-80">
-                        <img
+                        <Image
                           src={mainDiary.cover_image_url}
                           alt={mainDiary.title}
-                          className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
-                          loading="eager"
+                          fill
+                          className="object-cover transition-transform duration-700 group-hover:scale-105"
+                          priority
+                          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 600px"
                         />
                         <div className="absolute inset-0 bg-gradient-to-b from-white/5 via-transparent to-slate-950/20" />
                         <div className="absolute left-4 top-4 rounded-full border border-white/65 bg-white/75 px-3 py-1 text-[11px] font-black uppercase tracking-[0.18em] text-slate-600 shadow-sm backdrop-blur-md">
@@ -521,8 +524,8 @@ export default async function Home() {
                               {item.title}
                             </h3>
                             {item.image_url && (
-                              <div className="mt-3 overflow-hidden rounded-xl border border-white/70">
-                                <img src={item.image_url} alt={item.title || ''} className="h-40 w-full object-cover transition-transform duration-500 hover:scale-105" />
+                              <div className="relative mt-3 h-40 overflow-hidden rounded-xl border border-white/70">
+                                <Image src={item.image_url} alt={item.title || ''} fill className="object-cover transition-transform duration-500 hover:scale-105" sizes="(max-width: 768px) 100vw, 400px" />
                               </div>
                             )}
                             {item.description && (
@@ -584,10 +587,11 @@ export default async function Home() {
                       className="memory-card scroll-float-item"
                     >
                       {moment.image_url ? (
-                        <img
+                        <Image
                           src={moment.image_url}
                           alt={moment.caption || 'moment'}
-                          loading="lazy"
+                          fill
+                          sizes="(max-width: 768px) 50vw, 300px"
                         />
                       ) : (
                         <div className="flex h-full items-center justify-center bg-slate-100 text-slate-400">
