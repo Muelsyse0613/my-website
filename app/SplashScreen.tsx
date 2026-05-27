@@ -211,36 +211,28 @@ const SPLASH_STYLE = `
     white-space: nowrap;
   }
 
-  .splash-line-1 .splash-type {
-    animation: splashType 340ms steps(20, end) 160ms forwards;
+  .splash-line-1 .splash-text {
+    color: #475569;
   }
 
   .splash-line-2 .splash-type {
-    animation: splashType 440ms steps(26, end) 560ms forwards;
-  }
-
-  .splash-line-3 .splash-type {
-    color: #0369a1;
-    animation: splashType 260ms steps(15, end) 1280ms forwards;
-  }
-
-  .splash-line-4 .splash-type {
-    color: #7e22ce;
-    animation: splashType 280ms steps(16, end) 1660ms forwards;
+    animation: splashType 1600ms steps(30, end) 200ms forwards;
   }
 
   .splash-line-3,
   .splash-line-4 {
     opacity: 0;
-    animation: splashLineIn 160ms ease forwards;
+    animation: splashAppear 0s steps(1, end) forwards;
   }
 
   .splash-line-3 {
-    animation-delay: 1220ms;
+    animation-delay: 1800ms;
+    color: #0369a1;
   }
 
   .splash-line-4 {
-    animation-delay: 1600ms;
+    animation-delay: 2050ms;
+    color: #7e22ce;
   }
 
   .splash-cursor {
@@ -254,7 +246,7 @@ const SPLASH_STYLE = `
     box-shadow: 0 0 14px rgba(56, 189, 248, 0.75);
     animation:
       splashCursorBlink 620ms steps(2, start) infinite,
-      splashCursorOut 160ms ease 1220ms forwards;
+      splashCursorOut 160ms ease 1800ms forwards;
   }
 
   .splash-map {
@@ -407,9 +399,8 @@ const SPLASH_STYLE = `
     to { opacity: 0; transform: translateY(0.16em) scaleY(0.2); }
   }
 
-  @keyframes splashLineIn {
-    from { opacity: 0; transform: translateY(5px); }
-    to { opacity: 1; transform: translateY(0); }
+  @keyframes splashAppear {
+    to { opacity: 1; }
   }
 
   @keyframes splashOrbit {
@@ -541,23 +532,23 @@ export default function SplashScreen() {
                 <div className="splash-terminal">
                   <span className="splash-line splash-line-1">
                     <span className="splash-prefix">&gt; </span>
-                    <span className="splash-type">PERSONAL OBSERVATORY</span>
+                    <span className="splash-text">PERSONAL OBSERVATORY</span>
                   </span>
 
                   <span className="splash-line splash-line-2">
                     <span className="splash-prefix">&gt; </span>
-                    <span className="splash-type">CONNECTING TO HSY UNIVERSE</span>
+                    <span className="splash-type">connecting to HSY UNIVERSE</span>
                     <span className="splash-cursor" />
                   </span>
 
                   <span className="splash-line splash-line-3">
                     <span className="splash-prefix">✓ </span>
-                    <span className="splash-type">SIGNAL ACQUIRED</span>
+                    signal acquired
                   </span>
 
                   <span className="splash-line splash-line-4">
                     <span className="splash-prefix">✓ </span>
-                    <span className="splash-type">ORBIT STABILIZED</span>
+                    orbit stabilized
                   </span>
                 </div>
 
