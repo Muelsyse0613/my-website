@@ -8,6 +8,7 @@ import DiaryList from './DiaryList';
 import SplashScreen from './SplashScreen';
 import CheckinCard from './CheckinCard';
 import ScrollRestore from './ScrollRestore';
+import ExamDashboard from '../components/ExamDashboard';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -310,6 +311,19 @@ export default async function Home() {
           </aside>
         </div>
       </header>
+
+      <section className="section-shell scroll-float px-5 sm:px-8 lg:px-10">
+        <div className="mx-auto max-w-7xl min-w-0">
+          <SectionHeader
+            kicker="Exam / 考试日程"
+            title="期末倒计时"
+            description="真复习不过来了我艹"
+          />
+          <div className="mt-8">
+            <ExamDashboard />
+          </div>
+        </div>
+      </section>
 
       <main className="relative z-10">
         <section className="section-shell scroll-float px-5 sm:px-8 lg:px-10">

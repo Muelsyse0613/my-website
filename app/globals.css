@@ -637,4 +637,313 @@ body {
   .home-button:hover {
     transform: none;
   }
+
+  .exam-urgency-dot {
+    animation: none !important;
+  }
+}
+
+/* ================================================================
+   Exam Dashboard
+   ================================================================ */
+
+:root {
+  --exam-calm:   #5aa7ff;
+  --exam-warn:   #f59e0b;
+  --exam-urgent: #ef4444;
+  --exam-past:   #9ca3af;
+}
+
+/* ---- Status bar ---- */
+
+.exam-stat-label {
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #738198;
+}
+
+.exam-stat-subject {
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: #172033;
+  margin: 0.35rem 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.exam-countdown {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.08rem;
+  font-family: var(--font-geist-mono), 'SF Mono', 'Cascadia Code', monospace;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #5aa7ff;
+  font-variant-numeric: tabular-nums;
+}
+
+.exam-countdown-sm {
+  font-family: var(--font-geist-mono), 'SF Mono', 'Cascadia Code', monospace;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.exam-countdown-num {
+  display: inline-block;
+  min-width: 1.6ch;
+  text-align: center;
+}
+
+.exam-stat-big {
+  font-size: 1.85rem;
+  font-weight: 900;
+  color: #172033;
+  line-height: 1.15;
+  letter-spacing: -0.01em;
+}
+
+.exam-stat-unit {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #738198;
+}
+
+.exam-stat-desc {
+  font-size: 0.78rem;
+  color: #738198;
+  margin-top: 0.2rem;
+}
+
+.exam-stat-ring-row {
+  position: relative;
+  padding-left: 48px;
+  margin-top: 0.15rem;
+}
+
+.exam-ring {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+}
+
+/* ---- Progress bar ---- */
+
+.exam-progress {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.exam-progress-track {
+  position: relative;
+  flex: 1;
+  height: 4px;
+  border-radius: 999px;
+  background: rgba(23, 32, 51, 0.07);
+  overflow: visible; /* allow break line to extend */
+}
+
+.exam-progress-fill {
+  position: absolute;
+  inset: 0;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #5aa7ff, #a78bfa);
+  transition: width 1s ease;
+  z-index: 1;
+}
+
+.exam-progress-zone {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  background: rgba(239, 68, 68, 0.1);
+  border-radius: 0 999px 999px 0;
+}
+
+.exam-progress-break {
+  position: absolute;
+  top: -3px;
+  bottom: -3px;
+  width: 2px;
+  background: rgba(239, 68, 68, 0.55);
+  border-radius: 1px;
+  z-index: 2;
+}
+
+.exam-progress-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #8b9ab8;
+  white-space: nowrap;
+  letter-spacing: 0.04em;
+}
+
+/* ---- View all link ---- */
+
+.exam-view-all {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: #5aa7ff;
+  transition: color 150ms ease, gap 150ms ease;
+}
+
+.exam-view-all:hover {
+  color: #3b82f6;
+  gap: 0.55rem;
+}
+
+/* ---- Exam cards (for /tminus) ---- */
+
+.exam-card {
+  position: relative;
+  transition: transform 220ms ease, box-shadow 220ms ease;
+}
+
+.exam-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 22px 56px rgba(31, 41, 55, 0.1);
+}
+
+.exam-card--past {
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+.exam-card-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.6rem;
+}
+
+.exam-urgency-dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+@keyframes exam-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%      { opacity: 0.55; transform: scale(1.25); }
+}
+
+.exam-card-date {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #8b9ab8;
+}
+
+.exam-card-name {
+  font-size: 1.08rem;
+  font-weight: 800;
+  color: #172033;
+  line-height: 1.35;
+}
+
+.exam-card-time {
+  font-size: 0.82rem;
+  color: #738198;
+  margin-top: 0.15rem;
+}
+
+.exam-card-countdown {
+  margin-top: 0.9rem;
+}
+
+.exam-card-days {
+  display: flex;
+  align-items: baseline;
+  gap: 0.2rem;
+  flex-wrap: wrap;
+}
+
+.exam-days-num {
+  font-size: 2.1rem;
+  font-weight: 900;
+  color: #172033;
+  line-height: 1;
+  letter-spacing: -0.02em;
+}
+
+.exam-days-unit {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #738198;
+}
+
+.exam-urgent-tag {
+  margin-left: 0.4rem;
+  padding: 0.12rem 0.5rem;
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.1);
+  border-radius: 999px;
+  animation: exam-pulse 2.2s ease-in-out infinite;
+}
+
+.exam-card-past-label {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #9ca3af;
+}
+
+.exam-card-hours {
+  margin-top: 0.4rem;
+  font-size: 0.8rem;
+  color: #738198;
+}
+
+.exam-card-hours strong {
+  color: #172033;
+  font-weight: 700;
+}
+
+/* ---- T-minus page ---- */
+
+.tminus-page .home-shell {
+  background:
+    radial-gradient(circle at 12% 10%, rgba(90, 167, 255, 0.18), transparent 32%),
+    radial-gradient(circle at 88% 8%, rgba(167, 139, 250, 0.14), transparent 30%),
+    radial-gradient(circle at 50% 94%, rgba(45, 212, 191, 0.12), transparent 34%),
+    linear-gradient(180deg, #fbfcff 0%, #f7f8fb 42%, #f4f6fb 100%);
+}
+
+/* ---- Responsive ---- */
+
+@media (max-width: 640px) {
+  .exam-stat-big {
+    font-size: 1.55rem;
+  }
+
+  .exam-countdown {
+    font-size: 0.95rem;
+  }
+
+  .exam-days-num {
+    font-size: 1.75rem;
+  }
+
+  .exam-stat-ring-row {
+    padding-left: 44px;
+  }
+
+  .exam-ring {
+    width: 36px;
+    height: 36px;
+  }
 }
