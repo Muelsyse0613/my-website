@@ -3,6 +3,7 @@ import localFont from "next/font/local";
 import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import Script from "next/script";
+import MusicPlayer from "../components/MusicPlayer";
 import "./globals.css";
 
 const geistSans = localFont({
@@ -52,7 +53,7 @@ export default function RootLayout({
         <Script id="splash-prehide" strategy="beforeInteractive">
           {`try{if(window.sessionStorage&&window.sessionStorage.getItem('splash_played_v5')){var s=document.createElement('style');s.setAttribute('data-hsy-splash-prehide','true');s.textContent='#hsy-splash-root{display:none!important}';document.head.appendChild(s)}}catch(e){}`}
         </Script>
-        {children}<Analytics /><SpeedInsights />
+        {children}<MusicPlayer /><Analytics /><SpeedInsights />
       </body>
     </html>
   );
